@@ -1,0 +1,32 @@
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Python (tools/)
+__pycache__/
+*.py[cod]
+
+# Rust
+native/target/
+native/**/target/
+
+# generated jniLibs (produced by the cargo tasks)
+core/src/main/jniLibs/
+
+# downloaded bionic toolchain payloads
+native/prebuilt/*/
+!native/prebuilt/README.md
+
+*.keystore
+!debug.keystore
+keystore.properties
+
+# local secrets
+token.txt

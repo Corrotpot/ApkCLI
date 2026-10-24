@@ -1,0 +1,32 @@
+# Android 15+ ships devices with 16 KB base pages, and from 2027-02-01 Play
+# rejects updates whose native libraries are not 16 KB aligned. NDK r28's own
+# clang driver does this for C/C++, but Rust drives the linker itself, so the
+# flags have to be set here.
+#
+# common-page-size keeps the ELF compatible with 4 KB devices at the same time.
+
+[target.aarch64-linux-android]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,-z,common-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+]
+
+[target.x86_64-linux-android]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,-z,common-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+]
+
+[target.armv7-linux-androideabi]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+]
+
+[target.i686-linux-android]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--build-id=sha1",
+]

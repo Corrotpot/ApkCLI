@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      Only what the user may legitimately share out of the app: their own
+      projects, and files staged for export.
+
+      $PREFIX and the state directory are deliberately absent. $PREFIX holds the
+      toolchain symlinks, and the state directory holds the conversation
+      database, which contains everything ever discussed. Neither should be
+      reachable through a content URI.
+    -->
+    <files-path name="projects" path="home/projects/" />
+    <files-path name="exports" path="var/exports/" />
+</paths>

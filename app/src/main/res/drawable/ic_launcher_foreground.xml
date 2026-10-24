@@ -1,0 +1,29 @@
+<!--
+  Adaptive icon foreground.
+
+  The safe zone of an adaptive icon is the central 66dp of 108dp — anything
+  outside it gets cropped by whichever mask the launcher applies. Everything
+  here stays inside that, which is why the glyph looks small relative to the
+  canvas.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Prompt chevron -->
+    <path
+        android:fillColor="#7FD1AE"
+        android:pathData="M36,40l4.8,-4.8l13.2,13.2l-13.2,13.2l-4.8,-4.8l8.4,-8.4z" />
+
+    <!-- Cursor -->
+    <path
+        android:fillColor="#E6EDF3"
+        android:pathData="M58,58h16v6h-16z" />
+
+    <!-- Sparkle: the AI half of the identity, kept subordinate to the prompt. -->
+    <path
+        android:fillColor="#7FD1AE"
+        android:pathData="M70,34l1.8,5.2l5.2,1.8l-5.2,1.8l-1.8,5.2l-1.8,-5.2l-5.2,-1.8l5.2,-1.8z" />
+</vector>

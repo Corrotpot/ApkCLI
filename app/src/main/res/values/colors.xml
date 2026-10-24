@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must match DarkCanvas in ui/theme/Color.kt, or the window flashes a
+         different colour on launch, before Compose draws its first frame. -->
+    <color name="window_background">#FF1E1F22</color>
+    <color name="ic_launcher_background">#FF18191C</color>
+</resources>

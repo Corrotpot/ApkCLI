@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!--
+      Android 12+ replacement for full-backup-content. Same reasoning, and the
+      same allowlist semantics: with any <include> present, only the listed
+      paths are transferred, so usr/, var/ and apkcli_secrets.xml are omitted
+      without needing an <exclude> for each (which lint rejects as redundant).
+    -->
+    <cloud-backup>
+        <include domain="file" path="home/" />
+        <include domain="sharedpref" path="apkcli_settings.xml" />
+    </cloud-backup>
+
+    <!--
+      Device-to-device transfer may additionally carry the conversation
+      database: it stays on the user's hardware and never touches a cloud.
+      Secrets still cannot come along, because the Keystore key does not
+      transfer, so apkcli_secrets.xml is left out of the allowlist.
+    -->
+    <device-transfer>
+        <include domain="file" path="home/" />
+        <include domain="file" path="var/db/" />
+        <include domain="sharedpref" path="apkcli_settings.xml" />
+    </device-transfer>
+</data-extraction-rules>

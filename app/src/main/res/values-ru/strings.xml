@@ -1,0 +1,785 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Русский интерфейс. Идентификаторы совпадают с values/strings.xml. -->
+<resources>
+    <!-- Общее -->
+    <string name="common_back">Назад</string>
+    <string name="common_cancel">Отмена</string>
+    <string name="common_close">Закрыть</string>
+    <string name="common_delete">Удалить</string>
+    <string name="common_save">Сохранить</string>
+
+    <!-- Панель действий -->
+    <string name="nav_files">Файлы</string>
+    <string name="nav_settings">Настройки</string>
+
+    <!-- Раскладка -->
+    <string name="wb_split_screen">Разделение экрана</string>
+    <string name="wb_wider_chat">Расширить чат</string>
+    <string name="wb_narrower_chat">Сузить чат</string>
+    <string name="wb_reset_split">Сбросить разделение</string>
+    <string name="wb_divider">Разделитель между файлами и чатом. Перетащите, чтобы изменить размер; двойное касание — сброс.</string>
+
+    <!-- Проводник -->
+    <string name="explorer_title">Проводник</string>
+    <string name="explorer_new_file">Новый файл</string>
+    <string name="explorer_new_folder">Новая папка</string>
+    <string name="explorer_refresh">Обновить</string>
+    <string name="explorer_collapse_all">Свернуть все</string>
+    <string name="explorer_rename">Переименовать</string>
+    <string name="explorer_delete">Удалить</string>
+    <string name="explorer_actions">Действия</string>
+    <string name="explorer_expanded">развёрнута</string>
+    <string name="explorer_collapsed">свёрнута</string>
+    <string name="explorer_file_hint">name.kt или path/to/name.kt</string>
+    <string name="explorer_folder_hint">папка или path/to/folder</string>
+    <string name="import_github_invalid">Это не репозиторий GitHub: нужно owner/repo или https://github.com/owner/repo.</string>
+    <string name="import_starting">Начинаю…</string>
+    <string name="import_written">Записано файлов: %1$d (%2$s)</string>
+    <string name="import_not_found">Репозиторий или ветка не найдены. Открываются только публичные репозитории — проверьте владельца, имя и ветку.</string>
+    <string name="import_too_large">Слишком большой для импорта (%1$s).</string>
+    <string name="import_unreadable">Не удалось прочитать (%1$s).</string>
+    <string name="import_network">Скачивание не удалось: %1$s</string>
+    <string name="import_failed">Импорт не удался: %1$s</string>
+    <string name="explorer_show">Показать проводник</string>
+    <string name="explorer_show_editor">Показать редактор</string>
+    <string name="explorer_name_empty">Введите имя</string>
+    <string name="explorer_name_invalid">Недопустимое имя</string>
+    <string name="explorer_exists">%1$s уже существует</string>
+    <string name="explorer_create_failed">Не удалось создать %1$s</string>
+    <string name="explorer_rename_failed">Не удалось переименовать %1$s</string>
+    <string name="explorer_delete_failed">Не удалось удалить %1$s</string>
+    <string name="explorer_delete_title">Удалить %1$s?</string>
+    <string name="explorer_delete_file_body">Файл будет удалён с устройства. Отменить это отсюда нельзя.</string>
+    <string name="explorer_delete_dir_body">Папка и всё её содержимое будут удалены с устройства. Отменить это отсюда нельзя.</string>
+
+    <!-- Редактор -->
+    <string name="editor_undo">Отменить</string>
+    <string name="editor_redo">Повторить</string>
+    <string name="editor_word_wrap">Перенос строк</string>
+    <string name="editor_save">Сохранить</string>
+    <string name="editor_discard">Не сохранять</string>
+    <string name="editor_reload">Перезагрузить</string>
+    <string name="editor_keep_mine">Оставить мои</string>
+    <string name="editor_modified">изменён</string>
+    <string name="editor_close_tab">Закрыть %1$s</string>
+    <string name="editor_changed_title">Изменён на диске</string>
+    <string name="editor_changed_body">%1$s изменили вне редактора, пока у вас были несохранённые правки.</string>
+    <string name="editor_unsaved_title">Сохранить изменения в %1$s?</string>
+    <string name="editor_unsaved_body">Если закрыть без сохранения, правки пропадут.</string>
+    <string name="editor_save_failed">Не удалось сохранить %1$s</string>
+    <string name="editor_outside_sandbox">Этот файл вне хранилища приложения.</string>
+    <string name="editor_not_found">%1$s больше не существует</string>
+    <string name="editor_too_large">%1$s больше %2$d МБ и не открывается в редакторе.</string>
+    <string name="editor_unreadable">Не удалось прочитать %1$s</string>
+    <string name="editor_binary">%1$s похож на двоичный файл</string>
+
+    <!-- Чат -->
+    <string name="chat_composer_hint">Опишите, что нужно изменить</string>
+    <string name="memory_title">Память агента</string>
+    <string name="memory_empty">Пока пусто.</string>
+    <string name="memory_add">Добавить заметку</string>
+    <string name="memory_delete">Забыть %1$s</string>
+    <string name="memory_key">Ключ</string>
+    <string name="memory_value">Факт</string>
+    <string name="memory_key_taken">Факт с таким ключом уже есть.</string>
+    <string name="memory_value_long">Не больше %1$d символов — длинные заметки пишите в AGENTS.md.</string>
+    <string name="memory_notes_open">Открыть AGENTS.md</string>
+    <string name="memory_notes_create">Создать AGENTS.md</string>
+    <string name="memory_notes_cut">%1$s весит %2$s: в каждый запрос идут первые %3$s, а где остальное, агенту сказано.</string>
+    <string name="chat_attach_limit">Не больше %1$d изображений в одном сообщении — остальные не добавлены.</string>
+    <string name="chat_attach_unreadable">Не удалось прочитать изображение.</string>
+    <string name="chat_attach_model_may_not_see">Модель не заявляет поддержку изображений — может их не увидеть или вернуть ошибку.</string>
+    <string name="chat_image">Изображение</string>
+    <string name="a11y_attach_image">Прикрепить фото или скриншот</string>
+    <string name="a11y_remove_image">Убрать изображение %1$s</string>
+    <string name="chat_thinking">Думает</string>
+    <string name="chat_reasoning">Рассуждение</string>
+    <string name="chat_empty_title">Чем займёмся?</string>
+    <string name="chat_empty_body">Попросите что-то изменить или задайте вопрос о проекте. Агент читает и правит настоящие файлы.</string>
+    <string name="chat_waiting">Ожидание модели</string>
+    <string name="chat_plan">План · %1$d/%2$d</string>
+    <string name="chat_plan_dismiss">Закрыть план</string>
+    <!-- Шов от сборки, которая не записывала, кто сжал и сколько -->
+    <string name="chat_digest_seam">Ранние сообщения сжаты</string>
+    <string name="chat_compact_nothing_archivable">Окно почти заполнено, но сжимать нечего: почти всё занимают последние сообщения.</string>
+    <string name="chat_turn_failed">Ход неожиданно завершился ошибкой</string>
+    <string name="chat_iteration_limit">Остановлено на лимите итераций</string>
+    <string name="chat_iteration_limit_detail">Агент сделал %1$d раундов вызовов инструментов и не закончил. Обычно это значит, что он зациклился. Проверьте план и дайте более узкую задачу.</string>
+    <string name="chat_error_limit_learned">Сервер сообщил реальный лимит: %1$d токенов. Сохранено, больше это не повторится.</string>
+    <string name="chat_error_see_details">Сообщение сервера — в подробностях.</string>
+    <string name="chat_no_endpoint_title">Нет подключения</string>
+    <string name="chat_no_endpoint_body">Добавьте подключение в Настройках. Для Anthropic, OpenAI, OpenRouter и Kiro нужен только ключ.</string>
+    <string name="chat_no_models_title">Некуда отправить</string>
+    <string name="chat_no_models_body">%1$s не отдаёт список моделей. Добавьте id модели в Настройках › Подключения.</string>
+    <string name="chat_models_failed_title">Не удалось загрузить список моделей</string>
+    <string name="chat_models_failed_body">%1$s не вернул список моделей, поэтому отправлять некуда. Ответ сервера — в подробностях; обычно дело в URL или ключе.</string>
+
+    <!-- Команды чата: «/» в начале открывает плашку над полем ввода -->
+    <string name="commands_title">Команды</string>
+    <string name="command_compact_title">Сжать контекст</string>
+    <string name="command_compact_arg">[что сохранить подробно]</string>
+    <!-- %1$s: сколько занимает диалог, например 12,4K -->
+    <string name="command_compact_about">Свернуть разговор в сводку и освободить контекст: диалог занимает %1$s.</string>
+    <!-- %1$s: слова после /compact -->
+    <string name="command_compact_about_focus">Свернуть в сводку, подробно сохранив: «%1$s».</string>
+    <string name="command_blocked_running">Уже сжимается.</string>
+    <string name="command_blocked_busy">Можно, когда агент закончит ответ.</string>
+    <string name="command_blocked_empty">Нечего сжимать: в чате ещё нет сообщений.</string>
+    <string name="command_blocked_nothing_new">Нечего сжимать: после сводки новых сообщений нет.</string>
+    <string name="command_blocked_short">Нечего сжимать: разговор ещё короткий.</string>
+    <string name="command_blocked_short_since">Нечего сжимать: после сводки разговор ещё короткий.</string>
+
+    <!-- Где контекст сжат: шов поперёк переписки -->
+    <!-- %1$s: сколько уже идёт, например 0:05 -->
+    <string name="seam_compacting">Сжимаю контекст · %1$s</string>
+    <string name="seam_done">Контекст сжат</string>
+    <string name="seam_done_auto">Контекст сжат автоматически</string>
+    <!-- %1$s: сколько контекста вернула сводка, например 2,9k -->
+    <string name="seam_freed">Освобождено: %1$s</string>
+    <string name="seam_auto_note">Окно почти заполнилось. Последние сообщения остались как есть.</string>
+    <!-- %1$s: слова после /compact -->
+    <string name="seam_focus">Подробно сохранено: «%1$s»</string>
+    <string name="seam_show">Показать сводку</string>
+    <string name="seam_hide">Скрыть сводку</string>
+    <string name="seam_failed">Не удалось сжать</string>
+    <string name="seam_failed_body">Модель не вернула сводку. Ничего не изменилось: агент видит весь разговор, как раньше.</string>
+    <string name="seam_failed_no_model">Нет подключения или модели, чтобы написать сводку. Ничего не изменилось: агент видит весь разговор, как раньше.</string>
+    <string name="seam_retry">Повторить</string>
+    <string name="seam_stopped">Сжатие остановлено</string>
+    <string name="seam_stopped_body">Контекст не изменился.</string>
+    <string name="seam_skipped">Сжимать нечего</string>
+    <string name="seam_skipped_body">Сводка вышла не короче разговора, так что её не сохранили. Ничего не изменилось.</string>
+    <string name="seam_skipped_short">Разговор ещё короткий: сводка почти ничего не освободила бы. Ничего не изменилось.</string>
+    <string name="seam_skipped_nothing">После сводки новых сообщений нет. Ничего не изменилось.</string>
+
+    <!-- Сводка под швом, как её читает агент: её разделы -->
+    <string name="digest_title">Сводка для агента</string>
+    <string name="digest_objective">Цель</string>
+    <string name="digest_state">Где остановились</string>
+    <string name="digest_kept">Подробно, по просьбе</string>
+    <string name="digest_constraints">Ограничения</string>
+    <string name="digest_preferences">Предпочтения</string>
+    <string name="digest_decisions">Решения</string>
+    <string name="digest_failed">Не сработало</string>
+    <string name="digest_files">Файлы</string>
+    <string name="digest_edits">Изменения</string>
+    <string name="digest_commands">Команды</string>
+    <string name="digest_verbatim">Дословно</string>
+    <string name="digest_open">Открытые вопросы</string>
+    <string name="digest_next">Дальше</string>
+    <string name="digest_terms">Термины</string>
+    <string name="digest_foot">Агент читает эту сводку вместо сообщений выше. Они не удалены: остаются в чате, и агент находит их поиском по истории.</string>
+
+    <!-- Поле ввода -->
+    <string name="composer_model">Модель: %1$s</string>
+    <string name="composer_no_model">Нет модели</string>
+    <string name="composer_reasoning">Рассуждение: %1$s</string>
+    <string name="composer_loading_models">Загрузка моделей</string>
+    <string name="composer_load_models">Загрузить модели</string>
+    <string name="composer_refresh_models">Обновить список моделей</string>
+    <string name="composer_models_none">%1$s не отдаёт список моделей. Добавьте модель по id в Настройках › Серверы.</string>
+    <string name="composer_models_failed">Не удалось загрузить модели: %1$s</string>
+
+    <!-- Контекст -->
+    <string name="context_usage">Использование контекста</string>
+    <string name="context_conversation">Диалог</string>
+    <string name="context_tools">Описания инструментов</string>
+    <string name="context_instructions">Инструкции</string>
+    <string name="context_digest">Сводка</string>
+    <string name="context_memory">Память проекта</string>
+    <string name="context_reply_reserve">%1$s зарезервировано под ответ</string>
+    <string name="context_compact_note">Сжатие сворачивает диалог в сводку для агента: само, когда окно почти заполнится, или по команде /compact в чате.</string>
+    <string name="context_compact_now">Сжать сейчас</string>
+
+    <!-- Изменения. Плашка над полем ввода: «4 файла +64 −1», коротко, чтобы не обрезалось -->
+    <plurals name="changes_files">
+        <item quantity="one">%1$d файл</item>
+        <item quantity="few">%1$d файла</item>
+        <item quantity="many">%1$d файлов</item>
+        <item quantity="other">%1$d файла</item>
+    </plurals>
+    <string name="changes_title">Изменения агента</string>
+    <string name="changes_none">Нет изменений.</string>
+    <string name="changes_revert">Откатить</string>
+    <string name="changes_revert_all">Откатить все</string>
+    <string name="changes_revert_file">Откатить %1$s</string>
+    <string name="changes_open_file">Открыть в редакторе</string>
+    <string name="changes_revert_title_one">Откатить %1$s?</string>
+    <plurals name="changes_revert_title_all">
+        <item quantity="one">Откатить %1$d файл?</item>
+        <item quantity="few">Откатить %1$d файла?</item>
+        <item quantity="many">Откатить %1$d файлов?</item>
+        <item quantity="other">Откатить %1$d файла?</item>
+    </plurals>
+    <string name="changes_revert_body">Каждый файл вернётся к состоянию до первого изменения агентом. Ваши правки в нём после этого тоже пропадут.</string>
+    <plurals name="changes_reverted">
+        <item quantity="one">Откачен %1$d файл.</item>
+        <item quantity="few">Откачено %1$d файла.</item>
+        <item quantity="many">Откачено %1$d файлов.</item>
+        <item quantity="other">Откачено %1$d файла.</item>
+    </plurals>
+    <string name="changes_revert_failed">Некоторые файлы не удалось откатить: %1$s</string>
+    <string name="changes_kind_added">создан</string>
+    <string name="changes_kind_modified">изменён</string>
+    <string name="changes_kind_deleted">удалён</string>
+    <string name="changes_diff_skipped">Слишком большой или двоичный, чтобы показать здесь.</string>
+    <string name="changes_diff_empty">Содержимое файла совпадает с исходным.</string>
+
+    <!-- Чекпоинты: строка над каждым вашим сообщением и возврат к ней -->
+    <string name="checkpoint">Чекпоинт</string>
+    <string name="checkpoint_restore">Восстановить</string>
+    <string name="checkpoint_restoring">Восстанавливаю…</string>
+    <string name="checkpoint_title">Вернуться к этому чекпоинту?</string>
+    <string name="checkpoint_body">Чат, контекст агента и изменённые им файлы станут такими, какими были до этого сообщения. Его текст вернётся в поле ввода.</string>
+    <string name="checkpoint_messages">Удалится сообщений</string>
+    <string name="checkpoint_files">Восстановится файлов</string>
+    <string name="checkpoint_compaction">Сжатие контекста</string>
+    <string name="checkpoint_compaction_undone">отменится</string>
+    <string name="checkpoint_shell_note">Изменения, сделанные командами в терминале, не откатываются.</string>
+    <string name="checkpoint_busy_note">Агент сейчас работает — сначала он будет остановлен.</string>
+    <string name="checkpoint_failed">Не удалось вернуться к чекпоинту: %1$s</string>
+    <string name="checkpoint_files_failed">Чат возвращён к чекпоинту, но часть файлов восстановить не удалось: %1$s</string>
+
+    <!-- Карточки инструментов -->
+    <string name="tool_status_running">выполняется</string>
+    <string name="tool_status_running_for">выполняется %1$s</string>
+    <string name="tool_status_approved">разрешено</string>
+    <string name="tool_status_denied">отклонено</string>
+    <string name="tool_status_stopped">остановлено</string>
+    <string name="tool_status_writing">пишет</string>
+    <string name="tool_status_writing_size">пишет %1$s</string>
+    <string name="tool_status_writing_for">пишет · %1$s</string>
+    <string name="tool_status_writing_size_for">пишет %1$s · %2$s</string>
+    <string name="tool_status_queued">в очереди</string>
+    <string name="tool_no_result">(результат не записан)</string>
+    <string name="tool_tasks_done">выполнено %1$d/%2$d</string>
+    <string name="tool_more">ещё %1$d</string>
+    <string name="tool_output_clipped">··· здесь не показано символов: %1$s ···</string>
+    <string name="tool_timed_out">превышено время, %1$s</string>
+    <string name="tool_exit">код %1$s · %2$s</string>
+    <plurals name="tool_lines">
+        <item quantity="one">%1$d строка</item>
+        <item quantity="few">%1$d строки</item>
+        <item quantity="many">%1$d строк</item>
+        <item quantity="other">%1$d строки</item>
+    </plurals>
+    <plurals name="tool_matches">
+        <item quantity="one">%1$d совпадение</item>
+        <item quantity="few">%1$d совпадения</item>
+        <item quantity="many">%1$d совпадений</item>
+        <item quantity="other">%1$d совпадения</item>
+    </plurals>
+    <plurals name="tool_files">
+        <item quantity="one">%1$d файл</item>
+        <item quantity="few">%1$d файла</item>
+        <item quantity="many">%1$d файлов</item>
+        <item quantity="other">%1$d файла</item>
+    </plurals>
+    <plurals name="tool_entries">
+        <item quantity="one">%1$d элемент</item>
+        <item quantity="few">%1$d элемента</item>
+        <item quantity="many">%1$d элементов</item>
+        <item quantity="other">%1$d элемента</item>
+    </plurals>
+    <plurals name="tool_results">
+        <item quantity="one">%1$d результат</item>
+        <item quantity="few">%1$d результата</item>
+        <item quantity="many">%1$d результатов</item>
+        <item quantity="other">%1$d результата</item>
+    </plurals>
+    <string name="task_done">выполнено</string>
+    <string name="task_active">в работе</string>
+    <string name="task_todo">к выполнению</string>
+
+    <!-- Доступность -->
+    <string name="a11y_send_message">Отправить сообщение</string>
+    <string name="a11y_stop_turn">Остановить агента</string>
+    <string name="a11y_reasoning_shown">Рассуждение показано</string>
+    <string name="a11y_reasoning_hidden">Рассуждение скрыто</string>
+    <string name="a11y_tool_running">%1$s, выполняется</string>
+    <string name="a11y_tool_succeeded">%1$s, завершено за %2$s</string>
+    <string name="a11y_tool_failed">%1$s, ошибка</string>
+    <string name="a11y_context_meter">Окно контекста заполнено на %1$d процентов</string>
+    <string name="a11y_revert_change">Откатить это изменение</string>
+
+    <!-- Начало работы -->
+    <string name="setup_needs_key">Добавьте API-ключ, чтобы начать</string>
+    <string name="setup_needs_key_body">%1$s уже настроен, нужен только API-ключ. Список моделей загрузится сразу после сохранения ключа.</string>
+    <string name="setup_open_settings">Открыть настройки</string>
+    <string name="startup_failed_title">Окружение не запустилось</string>
+    <string name="startup_failed_body">Отчёт ниже — то, что нужно для баг-репорта. Пока это не исправлено, остальное приложение не работает.</string>
+
+    <!-- Разрешения и вопросы -->
+    <string name="approval_allow">Разрешить</string>
+    <string name="approval_deny">Запретить</string>
+    <string name="approval_destructive_note">Это сложно отменить.</string>
+
+    <!-- Ошибки -->
+    <string name="error_details">Подробности</string>
+    <string name="error_hide_details">Скрыть подробности</string>
+    <string name="llm_error_network">Сеть недоступна</string>
+    <string name="llm_error_timeout">Время запроса истекло</string>
+    <string name="llm_error_auth">Сервер отклонил API-ключ</string>
+    <string name="llm_error_rate_limit">Превышен лимит запросов</string>
+    <string name="llm_error_bad_request">Сервер отклонил запрос</string>
+    <string name="llm_error_context_overflow">Запрос превысил окно контекста модели</string>
+    <string name="llm_error_server">Ошибка на стороне сервера</string>
+    <string name="llm_error_protocol">Неожиданный формат ответа</string>
+    <string name="llm_error_cancelled">Остановлено</string>
+    <string name="llm_error_insecure">Ключ не отправлен по незащищённому HTTP</string>
+    <string name="llm_error_payment">На счёте ключа закончились средства</string>
+    <string name="llm_error_configuration">Настройка не завершена</string>
+    <string name="llm_error_unknown">Запрос не выполнен</string>
+    <string name="llm_error_model_unavailable">Модель недоступна на этом сервере</string>
+    <string name="llm_provider_said">Ответ сервера: «%1$s»</string>
+    <string name="llm_hint_check_key">Проверьте API-ключ и способ авторизации для этого сервера.</string>
+    <string name="llm_hint_check_base_path">Адрес не найден. Проверьте, нужен ли /v1 в конце базового URL.</string>
+    <string name="llm_hint_pick_another_model">Выберите другую модель или обновите список моделей.</string>
+    <string name="llm_hint_top_up">Пополните баланс аккаунта, к которому привязан ключ.</string>
+    <string name="llm_hint_raise_idle_timeout">Если модель долго рассуждает перед ответом, увеличьте тайм-аут ожидания потока.</string>
+    <string name="llm_hint_check_host">Имя сервера не найдено. Проверьте базовый URL и подключение к сети.</string>
+    <string name="llm_hint_check_server_running">По этому адресу никто не отвечает. Проверьте адрес и порт и что сервер запущен.</string>
+    <string name="llm_hint_tls">Не удалось установить защищённое соединение (TLS). Проверьте адрес, а также дату и время на устройстве.</string>
+    <string name="llm_hint_use_https">Используйте адрес https:// или, для локального сервера, адрес в локальной сети или VPN.</string>
+    <string name="llm_hint_models_html">Вместо списка моделей пришла веб-страница: похоже, базовый URL ведёт на сайт. Адрес API обычно заканчивается на /v1.</string>
+    <string name="llm_hint_models_not_json">Список моделей пришёл не в формате JSON.</string>
+
+    <!-- Проверка сервера -->
+
+    <!-- Режимы агента: названия на всех языках одни, как их назвал пользователь -->
+    <string name="mode_confirm">Confirm</string>
+    <string name="mode_rules">From Rules</string>
+    <string name="mode_bypass">Bypass Mode</string>
+    <string name="mode_confirm_desc">Спрашивает перед каждым изменением: записью и удалением файлов, командами, пакетами. Читает и ищет сам.</string>
+    <string name="mode_rules_desc">Спрашивает только о том, что не отмечено в правилах.</string>
+    <string name="mode_bypass_desc">Ничего не спрашивает и доводит задачу до конца. Правки файлов можно откатить, удалённые папки — нет.</string>
+    <string name="agent_explorer">Исследователь</string>
+    <string name="agent_explorer_desc">Изучает и объясняет, ничего не трогая.</string>
+
+    <!-- Настройки › Правила: что From Rules делает без подтверждения -->
+    <string name="rules_title">Правила</string>
+    <string name="rules_summary_free">Без подтверждения: %1$s</string>
+    <string name="rules_summary_none">Спрашивает обо всём</string>
+    <string name="rules_use">Включить From Rules</string>
+    <string name="rules_note_active">Отмеченное агент делает сам, остальное — после «Разрешить». Чтение и поиск не спрашивают никогда.</string>
+    <string name="rules_note_inactive">В режиме From Rules отмеченное агент делает сам, остальное — после «Разрешить». Чтение и поиск не спрашивают никогда.</string>
+    <string name="rule_edit">Правка файлов</string>
+    <string name="rule_edit_sub">Создание, запись и правка</string>
+    <string name="rule_delete">Удаление файлов</string>
+    <string name="rule_delete_sub">Удаление, перемещение и откат правок</string>
+    <string name="rule_commands">Команды</string>
+    <string name="rule_commands_sub">Команды в терминале, сборка и тесты</string>
+    <string name="rule_background">Фоновые процессы</string>
+    <string name="rule_background_sub">Запуск и остановка долгих команд</string>
+    <string name="rule_packages">Пакеты</string>
+    <string name="rule_packages_sub">Установка и удаление</string>
+    <string name="rule_subagents">Субагенты</string>
+    <string name="rule_subagents_sub">Поручения другому агенту; его правки идут по тем же правилам</string>
+
+    <!-- Поиск по чату: лупа в верхней панели -->
+    <string name="find_open">Найти в чате</string>
+    <string name="find_close">Закрыть поиск</string>
+    <string name="find_hint">Сообщения, ответы, рассуждения и вывод команд</string>
+    <string name="find_count">%1$d из %2$d</string>
+    <string name="find_none">Нет совпадений</string>
+    <string name="find_previous">Предыдущее совпадение</string>
+    <string name="find_next">Следующее совпадение</string>
+
+    <!-- История чатов проекта -->
+    <string name="history_title">История чатов</string>
+    <plurals name="history_count">
+        <item quantity="one">%1$d чат</item>
+        <item quantity="few">%1$d чата</item>
+        <item quantity="many">%1$d чатов</item>
+        <item quantity="other">%1$d чата</item>
+    </plurals>
+    <string name="history_search">Найти чат</string>
+    <string name="history_busy">Агент работает в открытом чате. Другой откроется, когда ход закончится.</string>
+    <string name="history_today">Сегодня</string>
+    <string name="history_yesterday">Вчера</string>
+    <string name="history_earlier">Ранее</string>
+    <string name="history_untitled">Новый чат</string>
+    <string name="history_new_chat">Новый чат</string>
+    <string name="history_empty_chat">пустой</string>
+    <string name="history_working">работает</string>
+    <string name="history_fresh_note">Здесь будут прошлые чаты проекта: новый чат не стирает предыдущий.</string>
+    <string name="history_actions">Действия: %1$s</string>
+    <string name="history_rename_title">Переименовать чат</string>
+    <string name="history_rename_label">Название</string>
+    <string name="history_rename_help">Сначала чат называется первой строкой первого сообщения.</string>
+    <string name="history_delete_title">Удалить чат?</string>
+    <string name="history_delete_body">«%1$s» удалится вместе с сообщениями и чекпоинтами. Файлы проекта останутся как есть.</string>
+    <string name="history_delete_opens_previous">Откроется предыдущий чат.</string>
+    <string name="history_delete_opens_new">Откроется новый пустой чат.</string>
+    <string name="history_deleted">Чат удалён</string>
+
+    <!-- Карточка субагента: задание, ход работы, ответ -->
+    <string name="subagent_kind_read">только чтение</string>
+    <string name="subagent_kind_write">меняет файлы</string>
+    <string name="subagent_task">Задание</string>
+    <string name="subagent_show_all">Показать всё</string>
+    <string name="subagent_show_less">Свернуть</string>
+    <string name="subagent_start_from">Начать с:</string>
+    <string name="subagent_steps">Ход работы · %1$d</string>
+    <string name="subagent_steps_none">Ход работы</string>
+    <string name="subagent_answer">Ответ</string>
+    <string name="subagent_waiting_model">Ожидание модели</string>
+    <string name="subagent_writing">Пишет</string>
+    <string name="subagent_step_waits">ждёт</string>
+    <string name="subagent_limit">Дошёл до лимита шагов (%1$d): ответ может быть неполным.</string>
+    <string name="subagent_failed">Не закончил: %1$s</string>
+    <string name="subagent_stopped">Остановлен до ответа.</string>
+    <string name="subagent_denied">Не запущен: поручение отклонено.</string>
+    <plurals name="subagent_steps_dropped">
+        <item quantity="one">%1$d ранний шаг не сохранён</item>
+        <item quantity="few">%1$d ранних шага не сохранены</item>
+        <item quantity="many">%1$d ранних шагов не сохранены</item>
+        <item quantity="other">%1$d ранних шага не сохранены</item>
+    </plurals>
+    <string name="subagent_text_cut">Показано %1$s из %2$s символов</string>
+    <string name="subagent_output_limit">Последний ответ упёрся в лимит длины: мог оборваться.</string>
+    <string name="chat_notice_output_limit">Ответ упёрся в лимит длины (%1$s токенов) и мог оборваться. Попросите продолжить.</string>
+    <string name="chat_notice_output_limit_unknown">Ответ упёрся в лимит длины и мог оборваться. Попросите продолжить.</string>
+    <string name="chat_notice_filtered">Ответ остановлен фильтром содержимого провайдера.</string>
+    <string name="chat_notice_stopped">Остановлено, ответ не закончен.</string>
+    <string name="approval_title_subagent">Поручить субагенту?</string>
+    <string name="approval_subagent_task">Задание · %1$s</string>
+    <string name="approval_subagent_note_read">Субагент только читает и ищет: ничего не изменит и ни о чём не спросит. Его ответ получит агент.</string>
+    <string name="approval_subagent_note_write">Субагент работает в режиме чата: о своих изменениях он спросит так же.</string>
+    <string name="approval_requested_by">Просит субагент · %1$s</string>
+    <string name="protocol_openai">Совместимый с OpenAI (/chat/completions)</string>
+    <string name="protocol_anthropic">Anthropic Messages (/messages)</string>
+    <string name="protocol_kiro">Kiro (Amazon Q, generateAssistantResponse)</string>
+
+    <!-- Настройки -->
+    <string name="settings_interface">Интерфейс</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_system">Системный</string>
+    <string name="settings_split_help">«Авто» разделяет экран на планшетах, складных телефонах и в альбомной ориентации.</string>
+    <string name="settings_agent">Агент</string>
+    <string name="settings_active">Активен</string>
+    <string name="settings_delete_endpoint_title">Удалить %1$s?</string>
+    <string name="settings_delete_endpoint_body">Сохранённый API-ключ и список моделей тоже удалятся. Диалоги останутся.</string>
+    <string name="settings_endpoint_removed">Подключение удалено</string>
+    <string name="settings_models_failed">Не удалось получить список моделей: %1$s</string>
+    <string name="settings_models_none">Сервер не отдал ни одной модели.</string>
+
+    <!-- Редактор сервера -->
+    <string name="ep_show_key">Показать ключ</string>
+    <string name="ep_hide_key">Скрыть ключ</string>
+    <string name="ep_err_url_required">Обязательно, например https://api.example.com/v1</string>
+    <string name="ep_err_url_invalid">Некорректный http(s) URL</string>
+    <string name="ep_err_key_chars">Содержит символы, недопустимые в заголовке</string>
+    <string name="ep_err_cleartext">Открытый HTTP до публичного хоста раскрыл бы ключ. Используйте https://</string>
+
+    <!-- Карточки инструментов -->
+    <string name="tool_name_fs_read">Чтение файла</string>
+    <string name="tool_name_fs_write">Запись файла</string>
+    <string name="tool_name_fs_edit">Правка файла</string>
+    <string name="tool_name_fs_apply_patch">Применение патча</string>
+    <string name="tool_name_fs_delete">Удаление</string>
+    <string name="tool_name_fs_move">Перемещение</string>
+    <string name="tool_name_fs_list">Содержимое папки</string>
+    <string name="tool_name_fs_glob">Поиск файлов</string>
+    <string name="tool_name_fs_stat">Сведения о файле</string>
+    <string name="tool_name_project_tree">Дерево проекта</string>
+    <string name="tool_name_outline">Структура файла</string>
+    <string name="tool_name_grep">Поиск по коду</string>
+    <string name="tool_name_symbol_search">Поиск символа</string>
+    <string name="tool_name_revert_edit">Откат правки</string>
+    <string name="tool_name_sh_exec">Команда</string>
+    <string name="tool_name_sh_background">Фоновая задача</string>
+    <string name="tool_name_sh_job_output">Вывод задачи</string>
+    <string name="tool_name_sh_jobs">Фоновые задачи</string>
+    <string name="tool_name_sh_job_kill">Остановка задачи</string>
+    <string name="tool_name_build_run">Сборка</string>
+    <string name="tool_name_test_run">Тесты</string>
+    <string name="tool_name_env_info">Окружение</string>
+    <string name="tool_name_task_list">План</string>
+    <string name="tool_name_subagent">Субагент</string>
+    <string name="tool_name_editor_open">Открыть в редакторе</string>
+    <string name="tool_name_conversation_search">Поиск по истории</string>
+    <string name="tool_name_conversation_read">Чтение истории</string>
+    <string name="tool_name_memory_read">Чтение памяти</string>
+    <string name="tool_name_memory_write">Запомнить</string>
+    <string name="tool_name_memory_forget">Забыть</string>
+    <string name="tool_name_web_fetch">Открыть страницу</string>
+    <string name="tool_name_web_search">Поиск в интернете</string>
+    <string name="tool_name_pkg_install">Установка пакетов</string>
+    <string name="tool_name_pkg_search">Поиск пакетов</string>
+    <string name="tool_name_pkg_remove">Удаление пакетов</string>
+    <string name="tool_result_ok">Успешно</string>
+    <string name="tool_result_failed">Ошибка</string>
+    <string name="tool_result_failed_code">Ошибка · код %1$s</string>
+    <string name="duration_ms">%1$d мс</string>
+    <string name="duration_s">%1$s с</string>
+    <string name="duration_min">%1$d мин %2$d с</string>
+    <string name="tool_diff_truncated">Дифф сокращён. Изменение целиком — в редакторе.</string>
+    <string name="md_copy_code">Скопировать код</string>
+    <string name="md_copied">Скопировано</string>
+
+    <!-- Уровни рассуждения, как их публикует модель -->
+    <string name="reasoning_level_none">Выкл</string>
+    <string name="reasoning_level_minimal">Минимальное</string>
+    <string name="reasoning_level_low">Низкое</string>
+    <string name="reasoning_level_medium">Среднее</string>
+    <string name="reasoning_level_high">Высокое</string>
+    <string name="reasoning_level_xhigh">Очень высокое</string>
+    <string name="reasoning_level_max">Максимальное</string>
+    <string name="reasoning_model_default">по умолчанию у модели</string>
+    <string name="reasoning_default_chip">По умолчанию</string>
+    <string name="reasoning_default_item_desc">Уровень не отправляется, модель решает сама</string>
+    <string name="reasoning_not_published">Эндпоинт не публикует уровни рассуждения для %1$s, поэтому используется настройка модели по умолчанию.</string>
+
+    <!-- Терминал -->
+    <string name="nav_terminal">Терминал</string>
+    <string name="terminal_new">Новый терминал</string>
+    <string name="terminal_none">Открытых терминалов нет</string>
+    <string name="terminal_send">Отправить</string>
+    <string name="terminal_close">Закрыть %1$s</string>
+    <string name="terminal_unavailable_title">В этой сборке терминала нет</string>
+    <string name="terminal_unavailable_body">Терминалу нужно нативное ядро, а оно не загрузилось. Команды агента тоже недоступны; подробности в отчёте о запуске.</string>
+    <string name="terminal_open_failed">Не удалось запустить оболочку: %1$s</string>
+    <string name="terminal_input_hint">Введите команду и нажмите Enter</string>
+
+    <!-- The design's screens: home, workspace tabs, sheets, settings -->
+    <string name="a11y_actions">Действия</string>
+    <string name="a11y_back">Назад</string>
+    <string name="a11y_clear">Очистить</string>
+    <string name="a11y_more">Ещё</string>
+    <string name="a11y_settings">Настройки</string>
+    <string name="agent_sheet_title">Режим агента</string>
+    <string name="agent_sheet_body">Когда он спрашивает разрешения.</string>
+    <string name="ago_minutes">%1$d мин назад</string>
+    <string name="ago_now">только что</string>
+    <string name="ago_weeks">%1$d нед. назад</string>
+    <string name="ago_yesterday">вчера</string>
+    <string name="approval_command_note">Команда выполнится в папке проекта, с доступом к вашим файлам.</string>
+    <string name="approval_files_note">Любое изменение можно откатить из списка изменений агента.</string>
+    <string name="approval_sheet_body">%1$s спрашивает перед записью файлов и командами.</string>
+    <string name="approval_body_confirm">Режим Confirm спрашивает перед каждым изменением.</string>
+    <string name="approval_body_rules">Не отмечено в правилах: %1$s. Поэтому агент спрашивает.</string>
+    <string name="approval_allow_rule">Разрешить и больше не спрашивать: %1$s</string>
+    <string name="approval_switch_bypass">Не спрашивать: перейти на Bypass Mode</string>
+    <string name="approval_title_build">Запустить сборку?</string>
+    <string name="approval_title_command">Запустить команду?</string>
+    <string name="approval_title_delete">Удалить?</string>
+    <string name="approval_title_edit">Изменить файл?</string>
+    <string name="approval_title_fetch">Открыть страницу?</string>
+    <string name="approval_title_install">Установить пакеты?</string>
+    <string name="approval_title_move">Переместить?</string>
+    <string name="approval_title_other">Разрешить «%1$s»?</string>
+    <string name="approval_title_test">Запустить тесты?</string>
+    <string name="approval_title_uninstall">Удалить пакеты?</string>
+    <string name="approval_title_write">Записать файл?</string>
+    <string name="changes_keep_all_short">Принять все</string>
+    <string name="changes_keep_short">Оставить</string>
+    <string name="changes_sheet_body">Каждый файл можно вернуть к состоянию до первого изменения.</string>
+    <string name="changes_view_short">Просмотр</string>
+    <string name="chat_reasoning_tokens">Рассуждение · %1$s токенов</string>
+    <string name="chat_thinking_for">Думает · %1$s</string>
+    <string name="clone_action">Клонировать</string>
+    <string name="clone_body">owner/repo, ссылка или owner/repo@ветка.</string>
+    <string name="clone_note">Скачиваются файлы ветки без истории git, поэтому коммитить и пушить отсюда нельзя. Приватные репозитории не поддерживаются.</string>
+    <string name="clone_placeholder">owner/repo или ссылка</string>
+    <string name="clone_repo">Репозиторий</string>
+    <string name="clone_title">Клонировать репозиторий</string>
+    <string name="connection_key_first">%1$s: сначала нужен API-ключ</string>
+    <string name="connection_needs_key">нужен ключ</string>
+    <string name="context_after_first">Разбивка появится после первого сообщения.</string>
+    <string name="context_used_left">Занято %1$s · %2$s до сжатия</string>
+    <string name="context_window">окно %1$s</string>
+    <string name="create_action">Создать</string>
+    <string name="create_body">Пустая папка в ~/projects с AGENTS.md для заметок агенту.</string>
+    <string name="create_name">Имя</string>
+    <string name="create_name_hint">Буквы, цифры, дефис</string>
+    <string name="create_name_invalid">Только буквы, цифры, точка, _ и -</string>
+    <string name="create_title">Создать проект</string>
+    <string name="custom_format">Формат запросов</string>
+    <string name="custom_headers">Заголовки</string>
+    <string name="custom_headers_help">По одному в строке, если прокси требует маршрутизацию или атрибуцию.</string>
+    <string name="custom_name">Имя</string>
+    <string name="custom_name_hint">Как назвать</string>
+    <string name="custom_sub">Любой сервер, совместимый с OpenAI или Anthropic</string>
+    <string name="custom_url">Базовый URL</string>
+    <string name="custom_url_help">До /v1. Маршрут приложение добавит само.</string>
+    <string name="editor_line_col">Стр %1$d, Кол %2$d</string>
+    <string name="editor_wrap_short">Перенос</string>
+    <string name="ep_err_headers">По одному «Имя: значение» в строке</string>
+    <string name="explorer_deco_added">создан агентом</string>
+    <string name="explorer_deco_modified">изменён агентом</string>
+    <string name="explorer_empty_body">Создайте первый файл или попросите агента.</string>
+    <string name="explorer_empty_title">Проект пуст</string>
+    <string name="explorer_name_label">Имя</string>
+    <string name="fact_address">Адрес</string>
+    <string name="fact_check">Проверка</string>
+    <string name="fact_format">Формат</string>
+    <string name="home_all">Все</string>
+    <string name="home_clone">Клонировать репозиторий</string>
+    <string name="home_clone_sub">Публичный репозиторий с GitHub</string>
+    <string name="home_create">Создать новый</string>
+    <string name="home_create_sub">Пустая папка в ~/projects</string>
+    <string name="home_key_add">Добавить ключ</string>
+    <string name="home_key_body">Агенту нужен доступ к LLM: Anthropic, OpenAI, OpenRouter, Kiro или свой URL.</string>
+    <string name="home_key_title">Подключите модель</string>
+    <string name="home_no_projects">Проектов пока нет. Создайте новый или склонируйте репозиторий.</string>
+    <string name="home_open">Открыть проект</string>
+    <string name="home_recent">Недавние</string>
+    <string name="home_start">Начать</string>
+    <string name="home_tagline">Агент для кода прямо на телефоне</string>
+    <string name="import_cloning">Клонирование</string>
+    <string name="import_copying">Копирование</string>
+    <string name="import_done_title">Готово</string>
+    <string name="import_downloading">Скачивание · %1$s</string>
+    <string name="import_failed_heading">Не удалось открыть</string>
+    <string name="import_later">Позже</string>
+    <string name="import_open">Открыть</string>
+    <string name="import_unpacking">Распаковка · %1$s</string>
+    <string name="key_kept">Сохранён. Оставьте пустым, чтобы не менять</string>
+    <string name="key_label_api">API-ключ</string>
+    <string name="key_label_kiro">Токен аккаунта</string>
+    <string name="key_missing_api">Вставьте API-ключ</string>
+    <string name="key_missing_kiro">Вставьте токен аккаунта</string>
+    <string name="key_optional">Если сервер его требует</string>
+    <string name="key_unexpected">Не похоже на ключ этой службы: ожидается %1$s… Если ключ верный, нажмите «Сохранить» ещё раз.</string>
+    <string name="key_where">Где взять: %1$s</string>
+    <string name="language_name_en">английский</string>
+    <string name="language_name_ru">русский</string>
+    <string name="memory_notes_hint">Длинные заметки — в AGENTS.md проекта, он тоже читается в каждом запросе.</string>
+    <string name="memory_scope_global">Глобально</string>
+    <string name="memory_scope_project">Этот проект</string>
+    <string name="memory_sheet_body">Всё это агент видит в каждом запросе. Заметки он сохраняет сам или когда вы просите «запомни…».</string>
+    <string name="model_line_context">контекст %1$s</string>
+    <string name="model_line_context_unknown">контекст ≈%1$s</string>
+    <string name="model_line_images">изображения</string>
+    <string name="model_line_output">ответ %1$s</string>
+    <string name="model_line_responses_only">только через /responses</string>
+    <string name="model_sheet_empty">Этот сервер не отдал список моделей.</string>
+    <string name="model_sheet_no_connection">Нет подключения</string>
+    <string name="model_sheet_others">Другие подключения</string>
+    <string name="model_sheet_search">Поиск по моделям</string>
+    <string name="model_sheet_title">Модель</string>
+    <string name="model_source_full">Список и лимиты пришли от сервера.</string>
+    <string name="model_source_ids">Сервер отдаёт только id моделей, поэтому окно контекста — осторожное значение, пока ошибка переполнения не сообщит настоящее.</string>
+    <string name="nav_agent">Агент</string>
+    <string name="note_body">Короткий факт, который агент должен держать в голове.</string>
+    <string name="note_edit">Изменить заметку</string>
+    <string name="note_key_hint">Агент видит его как тему заметки и по нему же её обновляет.</string>
+    <string name="note_key_placeholder">запуск</string>
+    <string name="note_new">Новая заметка</string>
+    <string name="note_scope">Где помнить</string>
+    <string name="note_scope_global_hint">Во всех проектах, включая новые.</string>
+    <string name="note_scope_project_hint">Только в проекте %1$s.</string>
+    <string name="note_value_placeholder">Одно-два предложения</string>
+    <string name="presets_added">уже есть</string>
+    <string name="presets_body">Остаётся вставить ключ: адрес, формат запросов и заголовки у схемы уже прописаны.</string>
+    <string name="presets_title">Новое подключение</string>
+    <string name="projects_add">Добавить</string>
+    <string name="projects_busy">Агент ещё работает: дождитесь конца или остановите его</string>
+    <string name="projects_delete_body">Папка и все диалоги проекта удалятся с устройства. Отменить это нельзя.</string>
+    <string name="projects_delete_title">Удалить %1$s?</string>
+    <string name="projects_export_failed">Не удалось сохранить архив</string>
+    <string name="projects_exported">Архив сохранён</string>
+    <string name="projects_from_folder">Папка на устройстве…</string>
+    <string name="projects_from_folder_sub">Скопируется в ~/projects</string>
+    <string name="projects_from_github">Открыть с GitHub…</string>
+    <string name="projects_from_github_sub">owner/repo или ссылка</string>
+    <string name="projects_menu_delete">Удалить проект</string>
+    <string name="projects_menu_export">Выгрузить в архив</string>
+    <string name="projects_menu_open">Открыть</string>
+    <string name="projects_menu_rename">Переименовать</string>
+    <string name="projects_nothing_found">Ничего не нашлось по «%1$s».</string>
+    <string name="projects_on_device">На устройстве</string>
+    <string name="projects_search">Поиск по проектам</string>
+    <string name="protocol_anthropic_effect">Рассуждение через thinking и output_config.effort; подписанные блоки thinking возвращаются без изменений. Ключ в x-api-key.</string>
+    <string name="protocol_openai_effect">Рассуждение уровнем в reasoning_effort, ключ в Authorization: Bearer.</string>
+    <string name="reasoning_desc_high">Держит длинные задачи</string>
+    <string name="reasoning_desc_low">Быстрые ответы, меньше токенов</string>
+    <string name="reasoning_desc_max">Всё, что модель может, с заметной задержкой</string>
+    <string name="reasoning_desc_medium">Баланс скорости и точности</string>
+    <string name="reasoning_desc_minimal">Несколько токенов на план</string>
+    <string name="reasoning_desc_none">Отвечает без рассуждения</string>
+    <string name="reasoning_desc_xhigh">Для глубокого поиска по коду и цепочек вызовов</string>
+    <string name="reasoning_none_for_model">Эта модель не рассуждает или не сообщает, что умеет.</string>
+    <string name="reasoning_sheet_body">Сколько модель думает перед ответом.</string>
+    <string name="reasoning_sheet_title">Рассуждение</string>
+    <string name="rename_failed">Имя занято или папку не удалось переименовать</string>
+    <string name="rename_title">Переименовать проект</string>
+    <string name="scheme_custom_name">Кастомный эндпоинт</string>
+    <string name="scheme_sub_anthropic">Claude напрямую</string>
+    <string name="scheme_sub_custom">vLLM, llama.cpp, Ollama, LM Studio, свой прокси</string>
+    <string name="scheme_sub_kiro">По токену аккаунта</string>
+    <string name="scheme_sub_openai">GPT напрямую</string>
+    <string name="scheme_sub_openrouter">Один ключ на все модели</string>
+    <string name="settings_add_connection">Добавить подключение</string>
+    <string name="settings_add_connection_sub">Готовая схема или свой URL</string>
+    <string name="settings_connections">Подключения</string>
+    <string name="settings_endpoint_failed">ошибка</string>
+    <string name="settings_key_rejected">Ключ не принят: %1$s</string>
+    <string name="settings_language_fixed">Независимо от языка системы</string>
+    <string name="settings_language_system_is">Системный — %1$s</string>
+    <string name="settings_loading_models">Загрузка моделей…</string>
+    <string name="settings_model">Модель</string>
+    <string name="settings_reasoning">Рассуждение</string>
+    <string name="settings_reasoning_none">У этой модели нет</string>
+    <string name="size_bytes">%1$d Б</string>
+    <string name="size_kb">%1$s КБ</string>
+    <string name="size_mb">%1$s МБ</string>
+    <string name="split_auto">Авто</string>
+    <string name="split_both">Всегда две</string>
+    <string name="split_one">Одна панель</string>
+    <string name="suggest_explain">Объясни, как устроен проект</string>
+    <string name="suggest_tests">Добавь тесты на то, что уже есть</string>
+    <string name="suggest_update_deps">Обнови зависимости и проверь</string>
+    <string name="suggest_why_fails">Найди, почему падает запуск</string>
+    <string name="terminal_busy">выполняется</string>
+    <string name="terminal_shell_name">Shell #%1$d</string>
+    <string name="terminal_agent_name">Агент</string>
+    <string name="documents_root_summary">Проекты</string>
+    <string name="explorer_open_externally">Открыть в проводнике</string>
+    <string name="explorer_open_file_externally">Открыть в другом приложении</string>
+    <string name="explorer_no_file_manager">На устройстве нет приложения, которое это откроет.</string>
+    <string name="terminal_agent_numbered">Агент #%1$d</string>
+    <string name="tool_status_asking">Спрашивает</string>
+    <string name="note_anthropic">Ключ уходит в x-api-key, заголовок anthropic-version: 2023-06-01 добавляется сам. Список моделей приходит с лимитами и с тем, как каждая думает: с Claude 4.6 — адаптивно, с уровнем в output_config.effort, у более ранних — по бюджету токенов.</string>
+    <string name="note_openai">Ключ уходит в Authorization: Bearer. Лимит ответа задаётся max_completion_tokens: рассуждающие модели max_tokens отклоняют. Модели семейств pro и codex работают только через /responses — для них нужен отдельный адаптер, и в списке они помечены.</string>
+    <string name="note_openrouter">Список моделей приходит с лимитами: окно контекста у всех моделей, лимит ответа почти у всех, уровни рассуждения примерно у половины — для остальных действует уровень по умолчанию. Список доступен и без ключа, поэтому ключ проверяется отдельно, через /key.</string>
+    <string name="note_kiro">Публичного API у Kiro нет: внутри это Amazon Q Developer, и приложение обращается к нему так же, как Kiro Account Manager. Для входа через Google или GitHub нужен только refreshToken; для Builder ID — ещё clientId и clientSecret: вставьте их как JSON или в формате экспорта менеджера. Токен обменивается на access token, модели приходят из ListAvailableModels, ответ — в формате AWS event-stream. Обмен может выдать новый токен обновления, и тогда Kiro IDE со старым токеном разлогинится — и наоборот. AWS такое использование не одобряет.</string>
+    <string name="note_custom">Базовый URL до /v1, маршрут приложение добавит само. /chat/completions есть у всех; /messages — у Ollama от 0.14 и LM Studio, у vLLM и llama.cpp обычно нет. Локальному серверу ключ чаще не нужен, по локальной сети http допустим.</string>
+    <plurals name="ago_days">
+        <item quantity="one">%d день назад</item>
+        <item quantity="few">%d дня назад</item>
+        <item quantity="many">%d дней назад</item>
+        <item quantity="other">%d дня назад</item>
+    </plurals>
+    <plurals name="ago_hours">
+        <item quantity="one">%d час назад</item>
+        <item quantity="few">%d часа назад</item>
+        <item quantity="many">%d часов назад</item>
+        <item quantity="other">%d часа назад</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="one">%d строка</item>
+        <item quantity="few">%d строки</item>
+        <item quantity="many">%d строк</item>
+        <item quantity="other">%d строки</item>
+    </plurals>
+    <plurals name="files_count">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+    <plurals name="home_projects_on_device">
+        <item quantity="one">%d проект на устройстве</item>
+        <item quantity="few">%d проекта на устройстве</item>
+        <item quantity="many">%d проектов на устройстве</item>
+        <item quantity="other">%d проекта на устройстве</item>
+    </plurals>
+    <plurals name="models_count">
+        <item quantity="one">%d модель</item>
+        <item quantity="few">%d модели</item>
+        <item quantity="many">%d моделей</item>
+        <item quantity="other">%d модели</item>
+    </plurals>
+</resources>

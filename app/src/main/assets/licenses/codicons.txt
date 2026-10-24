@@ -1,0 +1,13 @@
+Codicons - the icon set of Visual Studio Code (https://github.com/microsoft/vscode-codicons)
+As published in the npm package @vscode/codicons 0.0.46-24. The icons used
+were converted from SVG to Compose ImageVector by tools/gen_codicons.py;
+their geometry is unchanged.
+
+Copyright (c) Microsoft Corporation
+
+The icons are licensed under the Creative Commons Attribution 4.0
+International License (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+They are provided as-is, without warranties of any kind; see Section 5
+(Disclaimer of Warranties and Limitation of Liability) of the licence.

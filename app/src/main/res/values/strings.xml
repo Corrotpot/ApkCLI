@@ -1,0 +1,773 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English UI strings. Russian is in values-ru/; every id here must exist there
+  too, which tools/audit.py does not check but lint's MissingTranslation does.
+
+  Tool names, model ids, file paths and the startup diagnostic report are not
+  translated: they are identifiers or bug-report text.
+-->
+<resources>
+    <string name="app_name" translatable="false">ApkCLI</string>
+
+    <!-- Common -->
+    <string name="common_back">Back</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_close">Close</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_save">Save</string>
+
+    <!-- Activity bar -->
+    <string name="nav_files">Files</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Workbench layout -->
+    <string name="wb_split_screen">Split screen</string>
+    <string name="wb_wider_chat">Widen chat</string>
+    <string name="wb_narrower_chat">Narrow chat</string>
+    <string name="wb_reset_split">Reset split</string>
+    <string name="wb_divider">Divider between files and chat. Drag to resize, double-tap to reset.</string>
+
+    <!-- Explorer -->
+    <string name="explorer_title">Explorer</string>
+    <string name="explorer_new_file">New file</string>
+    <string name="explorer_new_folder">New folder</string>
+    <string name="explorer_refresh">Refresh</string>
+    <string name="explorer_collapse_all">Collapse all</string>
+    <string name="explorer_rename">Rename</string>
+    <string name="explorer_delete">Delete</string>
+    <string name="explorer_actions">Actions</string>
+    <string name="explorer_expanded">expanded</string>
+    <string name="explorer_collapsed">collapsed</string>
+    <string name="explorer_file_hint">name.kt or path/to/name.kt</string>
+    <string name="explorer_folder_hint">folder or path/to/folder</string>
+    <string name="import_github_invalid">Not a GitHub repository: use owner/repo or https://github.com/owner/repo.</string>
+    <string name="import_starting">Starting…</string>
+    <string name="import_written">%1$d files written (%2$s)</string>
+    <string name="import_not_found">Repository or branch not found. Only public repositories can be opened; check the owner, the name and the branch.</string>
+    <string name="import_too_large">Too large to import (%1$s).</string>
+    <string name="import_unreadable">Could not read it (%1$s).</string>
+    <string name="import_network">The download failed: %1$s</string>
+    <string name="import_failed">The import failed: %1$s</string>
+    <string name="explorer_show">Show explorer</string>
+    <string name="explorer_show_editor">Show editor</string>
+    <string name="explorer_name_empty">Enter a name</string>
+    <string name="explorer_name_invalid">Not a valid name</string>
+    <string name="explorer_exists">%1$s already exists</string>
+    <string name="explorer_create_failed">Could not create %1$s</string>
+    <string name="explorer_rename_failed">Could not rename %1$s</string>
+    <string name="explorer_delete_failed">Could not delete %1$s</string>
+    <string name="explorer_delete_title">Delete %1$s?</string>
+    <string name="explorer_delete_file_body">The file is deleted from the device. This cannot be undone from here.</string>
+    <string name="explorer_delete_dir_body">The folder and everything in it is deleted from the device. This cannot be undone from here.</string>
+
+    <!-- Editor -->
+    <string name="editor_undo">Undo</string>
+    <string name="editor_redo">Redo</string>
+    <string name="editor_word_wrap">Word wrap</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_discard">Discard</string>
+    <string name="editor_reload">Reload</string>
+    <string name="editor_keep_mine">Keep mine</string>
+    <string name="editor_modified">modified</string>
+    <string name="editor_close_tab">Close %1$s</string>
+    <string name="editor_changed_title">Changed on disk</string>
+    <string name="editor_changed_body">%1$s was changed outside the editor while you had unsaved edits.</string>
+    <string name="editor_unsaved_title">Save changes to %1$s?</string>
+    <string name="editor_unsaved_body">Your edits are lost if you close without saving.</string>
+    <string name="editor_save_failed">Could not save %1$s</string>
+    <string name="editor_outside_sandbox">That file is outside the app\'s storage.</string>
+    <string name="editor_not_found">%1$s no longer exists</string>
+    <string name="editor_too_large">%1$s is larger than %2$d MB and is not opened in the editor.</string>
+    <string name="editor_unreadable">%1$s could not be read</string>
+    <string name="editor_binary">%1$s looks like a binary file</string>
+
+    <!-- Chat -->
+    <string name="chat_composer_hint">Describe what you want changed</string>
+    <string name="memory_title">Agent memory</string>
+    <string name="memory_empty">Nothing yet.</string>
+    <string name="memory_add">Add a note</string>
+    <string name="memory_delete">Forget %1$s</string>
+    <string name="memory_key">Key</string>
+    <string name="memory_value">Fact</string>
+    <string name="memory_key_taken">There is already a fact with this key.</string>
+    <string name="memory_value_long">At most %1$d characters: longer notes go in AGENTS.md.</string>
+    <string name="memory_notes_open">Open AGENTS.md</string>
+    <string name="memory_notes_create">Create AGENTS.md</string>
+    <!-- %1$s: the file, e.g. AGENTS.md; %2$s: its size, e.g. 41 KB; %3$s: what a request carries of it, e.g. 32 KB -->
+    <string name="memory_notes_cut">%1$s is %2$s: each request carries its first %3$s, and the agent is told where the rest is.</string>
+    <string name="chat_attach_limit">At most %1$d images per message; the rest were not added.</string>
+    <string name="chat_attach_unreadable">Could not read that image.</string>
+    <string name="chat_attach_model_may_not_see">This model does not declare image support; it may not see them, or fail.</string>
+    <string name="chat_image">Image</string>
+    <string name="a11y_attach_image">Attach a photo or screenshot</string>
+    <string name="a11y_remove_image">Remove image %1$s</string>
+    <string name="chat_thinking">Thinking</string>
+    <string name="chat_reasoning">Reasoning</string>
+    <string name="chat_empty_title">What shall we work on?</string>
+    <string name="chat_empty_body">Ask for a change, or a question about the project. The agent reads and edits the real files.</string>
+    <string name="chat_waiting">Waiting for the model</string>
+    <string name="chat_plan">Plan · %1$d/%2$d</string>
+    <string name="chat_plan_dismiss">Close the plan</string>
+    <!-- A seam left by a build that did not record who compacted, or how much -->
+    <string name="chat_digest_seam">Earlier turns summarised</string>
+    <string name="chat_compact_nothing_archivable">The window is almost full, but there is nothing to compact: the latest messages take up almost all of it.</string>
+    <string name="chat_turn_failed">The turn failed unexpectedly</string>
+    <string name="chat_iteration_limit">Stopped at the iteration limit</string>
+    <string name="chat_iteration_limit_detail">The agent made %1$d rounds of tool calls without finishing. That usually means it is looping. Check the task list, then give it a narrower instruction.</string>
+    <string name="chat_error_limit_learned">The endpoint reported a real limit of %1$d tokens. Saved, so this will not happen again.</string>
+    <string name="chat_error_see_details">The endpoint\'s own message is in the details.</string>
+    <string name="chat_no_endpoint_title">No connection</string>
+    <string name="chat_no_endpoint_body">Add a connection in Settings. Anthropic, OpenAI, OpenRouter and Kiro need only a key.</string>
+    <string name="chat_no_models_title">No model to send to</string>
+    <string name="chat_no_models_body">%1$s does not list its models. Add a model id in Settings › Connections.</string>
+    <string name="chat_models_failed_title">Could not load the model list</string>
+    <string name="chat_models_failed_body">%1$s did not return its models, so there is nothing to send to. Its answer is in the details; the URL or the key is the usual cause.</string>
+
+    <!-- Chat commands: "/" at the start of the words opens a plaque over the composer -->
+    <string name="commands_title">Commands</string>
+    <string name="command_compact_title">Compact the context</string>
+    <string name="command_compact_arg">[what to keep in detail]</string>
+    <!-- %1$s: what the conversation takes up, e.g. 12.4K -->
+    <string name="command_compact_about">Fold the conversation into a summary and free the context: it takes up %1$s.</string>
+    <!-- %1$s: the words typed after /compact -->
+    <string name="command_compact_about_focus">Fold into a summary, keeping in detail: “%1$s”.</string>
+    <string name="command_blocked_running">Already compacting.</string>
+    <string name="command_blocked_busy">Possible once the agent has finished its reply.</string>
+    <string name="command_blocked_empty">Nothing to compact: the chat has no messages yet.</string>
+    <string name="command_blocked_nothing_new">Nothing to compact: no new messages since the summary.</string>
+    <string name="command_blocked_short">Nothing to compact: the conversation is still short.</string>
+    <string name="command_blocked_short_since">Nothing to compact: the conversation since the summary is still short.</string>
+
+    <!-- Where the context was compacted: a seam across the transcript -->
+    <!-- %1$s: how long it has been running, e.g. 0:05 -->
+    <string name="seam_compacting">Compacting the context · %1$s</string>
+    <string name="seam_done">Context compacted</string>
+    <string name="seam_done_auto">Context compacted automatically</string>
+    <!-- %1$s: how much of the context the summary gave back, e.g. 2.9k -->
+    <string name="seam_freed">Freed: %1$s</string>
+    <string name="seam_auto_note">The window was almost full. The latest messages stay as they are.</string>
+    <!-- %1$s: the words typed after /compact -->
+    <string name="seam_focus">Kept in detail: “%1$s”</string>
+    <string name="seam_show">Show the summary</string>
+    <string name="seam_hide">Hide the summary</string>
+    <string name="seam_failed">Could not compact</string>
+    <string name="seam_failed_body">The model did not return a summary. Nothing changed: the agent sees the whole conversation, as before.</string>
+    <string name="seam_failed_no_model">There is no connection or model to write the summary. Nothing changed: the agent sees the whole conversation, as before.</string>
+    <string name="seam_retry">Retry</string>
+    <string name="seam_stopped">Compaction stopped</string>
+    <string name="seam_stopped_body">The context did not change.</string>
+    <string name="seam_skipped">Nothing to compact</string>
+    <string name="seam_skipped_body">The summary came out no shorter than the conversation, so it was not kept. Nothing changed.</string>
+    <string name="seam_skipped_short">The conversation is still short: a summary would free next to nothing. Nothing changed.</string>
+    <string name="seam_skipped_nothing">No new messages since the summary. Nothing changed.</string>
+
+    <!-- The summary under a seam, as the agent reads it: its sections -->
+    <string name="digest_title">Summary for the agent</string>
+    <string name="digest_objective">Goal</string>
+    <string name="digest_state">Where things stand</string>
+    <string name="digest_kept">In detail, as asked</string>
+    <string name="digest_constraints">Constraints</string>
+    <string name="digest_preferences">Preferences</string>
+    <string name="digest_decisions">Decisions</string>
+    <string name="digest_failed">Did not work</string>
+    <string name="digest_files">Files</string>
+    <string name="digest_edits">Changes</string>
+    <string name="digest_commands">Commands</string>
+    <string name="digest_verbatim">Verbatim</string>
+    <string name="digest_open">Open questions</string>
+    <string name="digest_next">Next</string>
+    <string name="digest_terms">Terms</string>
+    <string name="digest_foot">The agent reads this summary instead of the messages above. They are not deleted: they stay in the chat, and the agent finds them by searching the history.</string>
+
+    <!-- Composer -->
+    <string name="composer_model">Model: %1$s</string>
+    <string name="composer_no_model">No model</string>
+    <string name="composer_reasoning">Reasoning: %1$s</string>
+    <string name="composer_loading_models">Loading models</string>
+    <string name="composer_load_models">Load models</string>
+    <string name="composer_refresh_models">Refresh model list</string>
+    <string name="composer_models_none">%1$s does not list its models. Add one by id in Settings › Endpoints.</string>
+    <string name="composer_models_failed">Could not load models: %1$s</string>
+
+    <!-- Context usage -->
+    <string name="context_usage">Context usage</string>
+    <string name="context_conversation">Conversation</string>
+    <string name="context_tools">Tool definitions</string>
+    <string name="context_instructions">Instructions</string>
+    <string name="context_digest">Digest</string>
+    <string name="context_memory">Project memory</string>
+    <string name="context_reply_reserve">%1$s reserved for the reply</string>
+    <string name="context_compact_note">Compaction folds the conversation into a summary for the agent: on its own when the window is almost full, or with the /compact command in the chat.</string>
+    <string name="context_compact_now">Compact now</string>
+
+    <!-- Changes. The bar over the composer: "4 files +64 −1", short so it is never cut -->
+    <plurals name="changes_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <string name="changes_title">Changes by the agent</string>
+    <string name="changes_none">No pending changes.</string>
+    <string name="changes_revert">Revert</string>
+    <string name="changes_revert_all">Revert all</string>
+    <string name="changes_revert_file">Revert %1$s</string>
+    <string name="changes_open_file">Open in editor</string>
+    <string name="changes_revert_title_one">Revert %1$s?</string>
+    <plurals name="changes_revert_title_all">
+        <item quantity="one">Revert %1$d file?</item>
+        <item quantity="other">Revert %1$d files?</item>
+    </plurals>
+    <string name="changes_revert_body">Each file goes back to how it was before the agent first changed it. Edits you made to it since are lost too.</string>
+    <plurals name="changes_reverted">
+        <item quantity="one">Reverted %1$d file.</item>
+        <item quantity="other">Reverted %1$d files.</item>
+    </plurals>
+    <string name="changes_revert_failed">Some files could not be reverted: %1$s</string>
+    <string name="changes_kind_added">added</string>
+    <string name="changes_kind_modified">modified</string>
+    <string name="changes_kind_deleted">deleted</string>
+    <string name="changes_diff_skipped">Too large or binary to show here.</string>
+    <string name="changes_diff_empty">The file is back to its original content.</string>
+
+    <!-- Checkpoints: the row above each message of yours, and going back to it -->
+    <string name="checkpoint">Checkpoint</string>
+    <string name="checkpoint_restore">Restore</string>
+    <string name="checkpoint_restoring">Restoring…</string>
+    <string name="checkpoint_title">Restore this checkpoint?</string>
+    <string name="checkpoint_body">The chat, the agent\'s context and the files it changed go back to how they were before this message. Its text returns to the input box.</string>
+    <string name="checkpoint_messages">Messages removed</string>
+    <string name="checkpoint_files">Files restored</string>
+    <string name="checkpoint_compaction">Context compaction</string>
+    <string name="checkpoint_compaction_undone">undone</string>
+    <string name="checkpoint_shell_note">Changes made by commands in the terminal are not undone.</string>
+    <string name="checkpoint_busy_note">The agent is working; it will be stopped first.</string>
+    <string name="checkpoint_failed">Could not restore the checkpoint: %1$s</string>
+    <string name="checkpoint_files_failed">The chat is back at the checkpoint, but some files could not be restored: %1$s</string>
+
+    <!-- Tool cards -->
+    <string name="tool_status_running">running</string>
+    <!-- %1$s: how long it has been running, e.g. 1:05 -->
+    <string name="tool_status_running_for">running %1$s</string>
+    <string name="tool_status_approved">approved</string>
+    <string name="tool_status_denied">declined</string>
+    <string name="tool_status_stopped">stopped</string>
+    <!-- The model is still writing the call; %1$s: how much so far, e.g. 2.4 KB -->
+    <string name="tool_status_writing">writing</string>
+    <string name="tool_status_writing_size">writing %1$s</string>
+    <!-- %1$s: how long the model has been writing the call, e.g. 0:12 -->
+    <string name="tool_status_writing_for">writing · %1$s</string>
+    <!-- %1$s: how much so far, e.g. 2.4 KB; %2$s: for how long, e.g. 0:12 -->
+    <string name="tool_status_writing_size_for">writing %1$s · %2$s</string>
+    <string name="tool_status_queued">queued</string>
+    <string name="tool_no_result">(no result recorded)</string>
+    <string name="tool_tasks_done">%1$d/%2$d done</string>
+    <string name="tool_more">%1$d more</string>
+    <!-- In an output box, where its middle is left out to keep it quick to draw; %1$s: how many characters, e.g. 1,234,567 -->
+    <string name="tool_output_clipped">··· %1$s characters not shown here ···</string>
+    <string name="tool_timed_out">timed out after %1$s</string>
+    <string name="tool_exit">exit %1$s · %2$s</string>
+    <plurals name="tool_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+    <plurals name="tool_matches">
+        <item quantity="one">%1$d match</item>
+        <item quantity="other">%1$d matches</item>
+    </plurals>
+    <plurals name="tool_files">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <plurals name="tool_entries">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <plurals name="tool_results">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+    <string name="task_done">done</string>
+    <string name="task_active">in progress</string>
+    <string name="task_todo">to do</string>
+
+    <!-- Accessibility -->
+    <string name="a11y_send_message">Send message</string>
+    <string name="a11y_stop_turn">Stop the agent</string>
+    <string name="a11y_reasoning_shown">Reasoning, shown</string>
+    <string name="a11y_reasoning_hidden">Reasoning, hidden</string>
+    <string name="a11y_tool_running">%1$s, running</string>
+    <string name="a11y_tool_succeeded">%1$s, finished in %2$s</string>
+    <string name="a11y_tool_failed">%1$s, failed</string>
+    <string name="a11y_context_meter">Context window %1$d percent full</string>
+    <string name="a11y_revert_change">Revert this change</string>
+
+    <!-- Setup -->
+    <string name="setup_needs_key">Add an API key to get started</string>
+    <string name="setup_needs_key_body">%1$s is already set up and only needs an API key. Its models are fetched as soon as the key is saved.</string>
+    <string name="setup_open_settings">Open settings</string>
+    <string name="startup_failed_title">Environment failed to start</string>
+    <string name="startup_failed_body">The report below is what a bug report needs. Nothing else in the app works until this is fixed.</string>
+
+    <!-- Approvals and questions -->
+    <string name="approval_allow">Allow</string>
+    <string name="approval_deny">Deny</string>
+    <string name="approval_destructive_note">This is hard to undo.</string>
+
+    <!-- Errors -->
+    <string name="error_details">Details</string>
+    <string name="error_hide_details">Hide details</string>
+    <string name="llm_error_network">Network unreachable</string>
+    <string name="llm_error_timeout">Request timed out</string>
+    <string name="llm_error_auth">Endpoint rejected the API key</string>
+    <string name="llm_error_rate_limit">Rate limited</string>
+    <string name="llm_error_bad_request">Endpoint rejected the request</string>
+    <string name="llm_error_context_overflow">Prompt exceeded the model\'s context window</string>
+    <string name="llm_error_server">Endpoint returned a server error</string>
+    <string name="llm_error_protocol">Unexpected response format</string>
+    <string name="llm_error_cancelled">Stopped</string>
+    <string name="llm_error_insecure">Refused to send the key over plain HTTP</string>
+    <string name="llm_error_payment">The account behind the key is out of credit</string>
+    <string name="llm_error_configuration">Setup is incomplete</string>
+    <string name="llm_error_unknown">Request failed</string>
+    <string name="llm_error_model_unavailable">The model is unavailable on this endpoint</string>
+    <string name="llm_provider_said">Server said: “%1$s”</string>
+    <string name="llm_hint_check_key">Check the API key and the auth scheme for this endpoint.</string>
+    <string name="llm_hint_check_base_path">The address was not found. Check whether the base URL should include or omit /v1.</string>
+    <string name="llm_hint_pick_another_model">Pick another model, or refresh the model list.</string>
+    <string name="llm_hint_top_up">Top up the balance of the account this key belongs to.</string>
+    <string name="llm_hint_raise_idle_timeout">If the model reasons for a long time before answering, raise the stream idle timeout.</string>
+    <string name="llm_hint_check_host">The host name does not resolve. Check the base URL and the network.</string>
+    <string name="llm_hint_check_server_running">Nothing answers at this address. Check the address and port, and that the server is running.</string>
+    <string name="llm_hint_tls">The secure connection (TLS) failed. Check the address and the device\'s date and time.</string>
+    <string name="llm_hint_use_https">Use an https:// address, or a LAN or VPN address for a local server.</string>
+    <string name="llm_hint_models_html">The model list came back as a web page: the base URL probably points at a website. API base URLs usually end in /v1.</string>
+    <string name="llm_hint_models_not_json">The model list did not come back as JSON.</string>
+
+    <!-- Endpoint test -->
+
+    <!-- Agent modes: their names are the same in every language, as the user named them -->
+    <string name="mode_confirm">Confirm</string>
+    <string name="mode_rules">From Rules</string>
+    <string name="mode_bypass">Bypass Mode</string>
+    <string name="mode_confirm_desc">Asks before every change: writing and deleting files, commands, packages. Reads and searches on its own.</string>
+    <string name="mode_rules_desc">Asks only about what is not ticked in the rules.</string>
+    <string name="mode_bypass_desc">Asks nothing and works the task to the end. File edits can be taken back; deleted folders cannot.</string>
+    <string name="agent_explorer">Explorer</string>
+    <string name="agent_explorer_desc">Investigates and explains without touching anything.</string>
+
+    <!-- Settings › Rules: what From Rules lets through without asking -->
+    <string name="rules_title">Rules</string>
+    <!-- %1$s: the ticked rules, e.g. "editing files, subagents" -->
+    <string name="rules_summary_free">Without asking: %1$s</string>
+    <string name="rules_summary_none">Asks about everything</string>
+    <string name="rules_use">Turn on From Rules</string>
+    <string name="rules_note_active">What is ticked the agent does on its own; the rest waits for “Allow”. Reading and searching never ask.</string>
+    <string name="rules_note_inactive">In From Rules mode, what is ticked the agent does on its own; the rest waits for “Allow”. Reading and searching never ask.</string>
+    <string name="rule_edit">Editing files</string>
+    <string name="rule_edit_sub">Creating, writing and editing</string>
+    <string name="rule_delete">Deleting files</string>
+    <string name="rule_delete_sub">Deleting, moving and reverting edits</string>
+    <string name="rule_commands">Commands</string>
+    <string name="rule_commands_sub">Terminal commands, builds and tests</string>
+    <string name="rule_background">Background jobs</string>
+    <string name="rule_background_sub">Starting and stopping long commands</string>
+    <string name="rule_packages">Packages</string>
+    <string name="rule_packages_sub">Installing and removing</string>
+    <string name="rule_subagents">Subagents</string>
+    <string name="rule_subagents_sub">Tasks handed to another agent; its changes follow the same rules</string>
+
+    <!-- Find in the chat: the magnifier in the top bar -->
+    <string name="find_open">Find in chat</string>
+    <string name="find_close">Close search</string>
+    <string name="find_hint">Messages, answers, reasoning and command output</string>
+    <string name="find_count">%1$d of %2$d</string>
+    <string name="find_none">No matches</string>
+    <string name="find_previous">Previous match</string>
+    <string name="find_next">Next match</string>
+
+    <!-- Chat history: the project's chats -->
+    <string name="history_title">Chat history</string>
+    <plurals name="history_count">
+        <item quantity="one">%1$d chat</item>
+        <item quantity="other">%1$d chats</item>
+    </plurals>
+    <string name="history_search">Find a chat</string>
+    <string name="history_busy">The agent is working in the open chat. Another one opens when the turn ends.</string>
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_earlier">Earlier</string>
+    <string name="history_untitled">New chat</string>
+    <string name="history_new_chat">New chat</string>
+    <string name="history_empty_chat">empty</string>
+    <string name="history_working">working</string>
+    <string name="history_fresh_note">The project\'s past chats will be here: a new chat does not erase the previous one.</string>
+    <string name="history_actions">Actions: %1$s</string>
+    <string name="history_rename_title">Rename chat</string>
+    <string name="history_rename_label">Name</string>
+    <string name="history_rename_help">At first a chat is named after the first line of its first message.</string>
+    <string name="history_delete_title">Delete chat?</string>
+    <string name="history_delete_body">“%1$s” will be deleted with its messages and checkpoints. The project\'s files stay as they are.</string>
+    <string name="history_delete_opens_previous">The previous chat opens.</string>
+    <string name="history_delete_opens_new">A new empty chat opens.</string>
+    <string name="history_deleted">Chat deleted</string>
+
+    <!-- A subagent's card: its task, its steps, its answer -->
+    <string name="subagent_kind_read">read-only</string>
+    <string name="subagent_kind_write">changes files</string>
+    <string name="subagent_task">Task</string>
+    <string name="subagent_show_all">Show all</string>
+    <string name="subagent_show_less">Show less</string>
+    <string name="subagent_start_from">Start from:</string>
+    <string name="subagent_steps">Steps · %1$d</string>
+    <string name="subagent_steps_none">Steps</string>
+    <string name="subagent_answer">Answer</string>
+    <string name="subagent_waiting_model">Waiting for the model</string>
+    <string name="subagent_writing">Writing</string>
+    <string name="subagent_step_waits">waits</string>
+    <string name="subagent_limit">Reached its round limit (%1$d): the answer may be incomplete.</string>
+    <string name="subagent_failed">Did not finish: %1$s</string>
+    <string name="subagent_stopped">Stopped before it answered.</string>
+    <string name="subagent_denied">Not started: the task was declined.</string>
+    <plurals name="subagent_steps_dropped">
+        <item quantity="one">%1$d earlier step not kept</item>
+        <item quantity="other">%1$d earlier steps not kept</item>
+    </plurals>
+    <string name="subagent_text_cut">Showing %1$s of %2$s characters</string>
+    <string name="subagent_output_limit">Its last reply stopped at the output limit: the answer may be cut off.</string>
+    <!-- Under a reply that ended other than by finishing. %1$s: the output limit, e.g. 32,000 -->
+    <string name="chat_notice_output_limit">The reply stopped at its output limit (%1$s tokens) and may be cut off. Ask it to continue.</string>
+    <string name="chat_notice_output_limit_unknown">The reply stopped at its output limit and may be cut off. Ask it to continue.</string>
+    <string name="chat_notice_filtered">The provider\'s content filter stopped this reply.</string>
+    <string name="chat_notice_stopped">Stopped before the reply was finished.</string>
+    <string name="approval_title_subagent">Hand a task to a subagent?</string>
+    <string name="approval_subagent_task">Task · %1$s</string>
+    <string name="approval_subagent_note_read">The subagent only reads and searches: it changes nothing and asks nothing. Its answer goes to the agent.</string>
+    <string name="approval_subagent_note_write">The subagent works under this chat\'s mode: it asks about its changes the same way.</string>
+    <string name="approval_requested_by">Asked by a subagent · %1$s</string>
+    <string name="protocol_openai">OpenAI-compatible (/chat/completions)</string>
+    <string name="protocol_anthropic">Anthropic Messages (/messages)</string>
+    <string name="protocol_kiro">Kiro (Amazon Q, generateAssistantResponse)</string>
+
+    <!-- Settings -->
+    <string name="settings_interface">Interface</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System</string>
+    <string name="settings_split_help">“Auto” splits the screen on tablets, foldables and in landscape.</string>
+    <string name="settings_agent">Agent</string>
+    <string name="settings_active">Active</string>
+    <string name="settings_delete_endpoint_title">Delete %1$s?</string>
+    <string name="settings_delete_endpoint_body">Its stored API key and model list are removed too. Conversations are kept.</string>
+    <string name="settings_endpoint_removed">Connection removed</string>
+    <string name="settings_models_failed">Could not list models: %1$s</string>
+    <string name="settings_models_none">The server listed no models.</string>
+
+    <!-- Endpoint editor -->
+    <string name="ep_show_key">Show key</string>
+    <string name="ep_hide_key">Hide key</string>
+    <string name="ep_err_url_required">Required, e.g. https://api.example.com/v1</string>
+    <string name="ep_err_url_invalid">Not a valid http(s) URL</string>
+    <string name="ep_err_key_chars">Contains characters that cannot be sent in a header</string>
+    <string name="ep_err_cleartext">Plain HTTP to a public host would expose the key. Use https://</string>
+
+    <!-- Tool cards: what each tool does, in the user's words -->
+    <string name="tool_name_fs_read">Read file</string>
+    <string name="tool_name_fs_write">Write file</string>
+    <string name="tool_name_fs_edit">Edit file</string>
+    <string name="tool_name_fs_apply_patch">Apply patch</string>
+    <string name="tool_name_fs_delete">Delete</string>
+    <string name="tool_name_fs_move">Move</string>
+    <string name="tool_name_fs_list">List folder</string>
+    <string name="tool_name_fs_glob">Find files</string>
+    <string name="tool_name_fs_stat">File info</string>
+    <string name="tool_name_project_tree">Project tree</string>
+    <string name="tool_name_outline">File outline</string>
+    <string name="tool_name_grep">Search code</string>
+    <string name="tool_name_symbol_search">Find symbol</string>
+    <string name="tool_name_revert_edit">Revert edit</string>
+    <string name="tool_name_sh_exec">Run command</string>
+    <string name="tool_name_sh_background">Background job</string>
+    <string name="tool_name_sh_job_output">Job output</string>
+    <string name="tool_name_sh_jobs">Background jobs</string>
+    <string name="tool_name_sh_job_kill">Stop job</string>
+    <string name="tool_name_build_run">Build</string>
+    <string name="tool_name_test_run">Run tests</string>
+    <string name="tool_name_env_info">Environment</string>
+    <string name="tool_name_task_list">Plan</string>
+    <string name="tool_name_subagent">Subagent</string>
+    <string name="tool_name_editor_open">Open in editor</string>
+    <string name="tool_name_conversation_search">Search history</string>
+    <string name="tool_name_conversation_read">Read history</string>
+    <string name="tool_name_memory_read">Read memory</string>
+    <string name="tool_name_memory_write">Remember</string>
+    <string name="tool_name_memory_forget">Forget</string>
+    <string name="tool_name_web_fetch">Open web page</string>
+    <string name="tool_name_web_search">Web search</string>
+    <string name="tool_name_pkg_install">Install packages</string>
+    <string name="tool_name_pkg_search">Find packages</string>
+    <string name="tool_name_pkg_remove">Remove packages</string>
+    <string name="tool_result_ok">Success</string>
+    <string name="tool_result_failed">Failed</string>
+    <string name="tool_result_failed_code">Failed · exit %1$s</string>
+    <string name="duration_ms">%1$d ms</string>
+    <string name="duration_s">%1$s s</string>
+    <string name="duration_min">%1$d min %2$d s</string>
+    <string name="tool_diff_truncated">Diff shortened. The whole change is in the editor.</string>
+    <string name="md_copy_code">Copy code</string>
+    <string name="md_copied">Copied</string>
+
+    <!-- Reasoning levels, as models publish them -->
+    <string name="reasoning_level_none">Off</string>
+    <string name="reasoning_level_minimal">Minimal</string>
+    <string name="reasoning_level_low">Low</string>
+    <string name="reasoning_level_medium">Medium</string>
+    <string name="reasoning_level_high">High</string>
+    <string name="reasoning_level_xhigh">Extra high</string>
+    <string name="reasoning_level_max">Max</string>
+    <string name="reasoning_model_default">model default</string>
+    <string name="reasoning_default_chip">Default</string>
+    <string name="reasoning_default_item_desc">No level is sent; the model uses its own</string>
+    <string name="reasoning_not_published">The endpoint does not publish reasoning levels for %1$s, so the model\'s own default is used.</string>
+
+    <!-- Terminal -->
+    <string name="nav_terminal">Terminal</string>
+    <string name="terminal_new">New terminal</string>
+    <!-- The Terminal tab once the user has closed every session -->
+    <string name="terminal_none">No terminals open</string>
+    <string name="terminal_send">Send</string>
+    <string name="terminal_close">Close %1$s</string>
+    <string name="terminal_unavailable_title">No terminal on this build</string>
+    <string name="terminal_unavailable_body">A terminal needs the native core, which did not load. The agent\'s own commands are unavailable too; see the startup report.</string>
+    <string name="terminal_open_failed">Could not start a shell: %1$s</string>
+    <string name="terminal_input_hint">Type a command, press Enter</string>
+
+    <!-- The design's screens: home, workspace tabs, sheets, settings -->
+    <string name="a11y_actions">Actions</string>
+    <string name="a11y_back">Back</string>
+    <string name="a11y_clear">Clear</string>
+    <string name="a11y_more">More</string>
+    <string name="a11y_settings">Settings</string>
+    <string name="agent_sheet_title">Agent mode</string>
+    <string name="agent_sheet_body">When it asks for permission.</string>
+    <string name="ago_minutes">%1$d min ago</string>
+    <string name="ago_now">just now</string>
+    <string name="ago_weeks">%1$d wk ago</string>
+    <string name="ago_yesterday">yesterday</string>
+    <string name="approval_command_note">The command runs in the project folder, with access to your files.</string>
+    <string name="approval_files_note">Every change can be taken back from the list of the agent\'s changes.</string>
+    <string name="approval_sheet_body">%1$s asks before it writes files or runs commands.</string>
+    <string name="approval_body_confirm">Confirm mode asks before every change.</string>
+    <!-- %1$s: the rule, e.g. "commands" -->
+    <string name="approval_body_rules">Not ticked in the rules: %1$s. So the agent asks.</string>
+    <string name="approval_allow_rule">Allow, and stop asking about %1$s</string>
+    <string name="approval_switch_bypass">Stop asking: switch to Bypass Mode</string>
+    <string name="approval_title_build">Run the build?</string>
+    <string name="approval_title_command">Run the command?</string>
+    <string name="approval_title_delete">Delete?</string>
+    <string name="approval_title_edit">Edit the file?</string>
+    <string name="approval_title_fetch">Open the page?</string>
+    <string name="approval_title_install">Install packages?</string>
+    <string name="approval_title_move">Move?</string>
+    <string name="approval_title_other">Allow “%1$s”?</string>
+    <string name="approval_title_test">Run the tests?</string>
+    <string name="approval_title_uninstall">Remove packages?</string>
+    <string name="approval_title_write">Write the file?</string>
+    <string name="changes_keep_all_short">Keep all</string>
+    <string name="changes_keep_short">Keep</string>
+    <string name="changes_sheet_body">Each file can be taken back to how it was before the agent\'s first edit.</string>
+    <string name="changes_view_short">View</string>
+    <string name="chat_reasoning_tokens">Reasoning · %1$s tokens</string>
+    <string name="chat_thinking_for">Thinking · %1$s</string>
+    <string name="clone_action">Clone</string>
+    <string name="clone_body">owner/repo, a link, or owner/repo@branch.</string>
+    <string name="clone_note">The branch\'s files are downloaded without git history, so you cannot commit or push from here. Private repositories are not supported.</string>
+    <string name="clone_placeholder">owner/repo or a link</string>
+    <string name="clone_repo">Repository</string>
+    <string name="clone_title">Clone a repository</string>
+    <string name="connection_key_first">%1$s: needs an API key first</string>
+    <string name="connection_needs_key">needs a key</string>
+    <string name="context_after_first">The breakdown appears after the first message.</string>
+    <string name="context_used_left">Used %1$s · %2$s before compaction</string>
+    <string name="context_window">window %1$s</string>
+    <string name="create_action">Create</string>
+    <string name="create_body">An empty folder in ~/projects with an AGENTS.md for notes to the agent.</string>
+    <string name="create_name">Name</string>
+    <string name="create_name_hint">Letters, digits, dash</string>
+    <string name="create_name_invalid">Letters, digits, dot, _ and - only</string>
+    <string name="create_title">Create a project</string>
+    <string name="custom_format">Request format</string>
+    <string name="custom_headers">Headers</string>
+    <string name="custom_headers_help">One per line, if a proxy needs them for routing or attribution.</string>
+    <string name="custom_name">Name</string>
+    <string name="custom_name_hint">What to call it</string>
+    <string name="custom_sub">Any server compatible with OpenAI or Anthropic</string>
+    <string name="custom_url">Base URL</string>
+    <string name="custom_url_help">Up to /v1. The app adds the route itself.</string>
+    <string name="editor_line_col">Ln %1$d, Col %2$d</string>
+    <string name="editor_wrap_short">Wrap</string>
+    <string name="ep_err_headers">One “Name: value” per line</string>
+    <string name="explorer_deco_added">added by the agent</string>
+    <string name="explorer_deco_modified">changed by the agent</string>
+    <string name="explorer_empty_body">Create the first file or ask the agent.</string>
+    <string name="explorer_empty_title">The project is empty</string>
+    <string name="explorer_name_label">Name</string>
+    <string name="fact_address">Address</string>
+    <string name="fact_check">Check</string>
+    <string name="fact_format">Format</string>
+    <string name="home_all">All</string>
+    <string name="home_clone">Clone a repository</string>
+    <string name="home_clone_sub">A public repository from GitHub</string>
+    <string name="home_create">Create new</string>
+    <string name="home_create_sub">An empty folder in ~/projects</string>
+    <string name="home_key_add">Add a key</string>
+    <string name="home_key_body">The agent needs an LLM: Anthropic, OpenAI, OpenRouter, Kiro or your own URL.</string>
+    <string name="home_key_title">Connect a model</string>
+    <string name="home_no_projects">No projects yet. Create a new one or clone a repository.</string>
+    <string name="home_open">Open a project</string>
+    <string name="home_recent">Recent</string>
+    <string name="home_start">Start</string>
+    <string name="home_tagline">A coding agent right on your phone</string>
+    <string name="import_cloning">Cloning</string>
+    <string name="import_copying">Copying</string>
+    <string name="import_done_title">Done</string>
+    <string name="import_downloading">Downloading · %1$s</string>
+    <string name="import_failed_heading">Could not open</string>
+    <string name="import_later">Later</string>
+    <string name="import_open">Open</string>
+    <string name="import_unpacking">Unpacking · %1$s</string>
+    <string name="key_kept">Saved. Leave empty to keep it</string>
+    <string name="key_label_api">API key</string>
+    <string name="key_label_kiro">Account token</string>
+    <string name="key_missing_api">Paste the API key</string>
+    <string name="key_missing_kiro">Paste the account token</string>
+    <string name="key_optional">If the server requires one</string>
+    <string name="key_unexpected">Does not look like this service\'s key, which starts with %1$s… Save again if it is right.</string>
+    <string name="key_where">Where to get it: %1$s</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ru">Russian</string>
+    <string name="memory_notes_hint">Long notes belong in the project\'s AGENTS.md; it is read with every request too.</string>
+    <string name="memory_scope_global">Everywhere</string>
+    <string name="memory_scope_project">This project</string>
+    <string name="memory_sheet_body">The agent sees all of this with every request. It saves notes itself, or when you ask it to remember something.</string>
+    <string name="model_line_context">context %1$s</string>
+    <string name="model_line_context_unknown">context ≈%1$s</string>
+    <string name="model_line_images">images</string>
+    <string name="model_line_output">answer %1$s</string>
+    <string name="model_line_responses_only">only via /responses</string>
+    <string name="model_sheet_empty">This server did not list any models.</string>
+    <string name="model_sheet_no_connection">No connection</string>
+    <string name="model_sheet_others">Other connections</string>
+    <string name="model_sheet_search">Search models</string>
+    <string name="model_sheet_title">Model</string>
+    <string name="model_source_full">The list and the limits came from the server.</string>
+    <string name="model_source_ids">The server lists model ids only, so the context window is a cautious default until an overflow error tells the real one.</string>
+    <string name="nav_agent">Agent</string>
+    <string name="note_body">A short fact the agent should keep in mind.</string>
+    <string name="note_edit">Edit the note</string>
+    <string name="note_key_hint">The agent reads it as the note\'s topic and updates the note by it.</string>
+    <string name="note_key_placeholder">run</string>
+    <string name="note_new">New note</string>
+    <string name="note_scope">Where to remember</string>
+    <string name="note_scope_global_hint">In every project, new ones included.</string>
+    <string name="note_scope_project_hint">Only in the project %1$s.</string>
+    <string name="note_value_placeholder">A sentence or two</string>
+    <string name="presets_added">already added</string>
+    <string name="presets_body">All that is left is the key: the address, the request format and the headers are already in the scheme.</string>
+    <string name="presets_title">New connection</string>
+    <string name="projects_add">Add</string>
+    <string name="projects_busy">The agent is still working: wait for it or stop it first</string>
+    <string name="projects_delete_body">The folder and all its chats are deleted from the device. This cannot be undone.</string>
+    <string name="projects_delete_title">Delete %1$s?</string>
+    <string name="projects_export_failed">Could not save the archive</string>
+    <string name="projects_exported">Archive saved</string>
+    <string name="projects_from_folder">A folder on the device…</string>
+    <string name="projects_from_folder_sub">Copied into ~/projects</string>
+    <string name="projects_from_github">Open from GitHub…</string>
+    <string name="projects_from_github_sub">owner/repo or a link</string>
+    <string name="projects_menu_delete">Delete project</string>
+    <string name="projects_menu_export">Export as archive</string>
+    <string name="projects_menu_open">Open</string>
+    <string name="projects_menu_rename">Rename</string>
+    <string name="projects_nothing_found">Nothing found for “%1$s”.</string>
+    <string name="projects_on_device">On the device</string>
+    <string name="projects_search">Search projects</string>
+    <string name="protocol_anthropic_effect">Reasoning through thinking and output_config.effort; signed thinking blocks go back unchanged. The key goes in x-api-key.</string>
+    <string name="protocol_openai_effect">Reasoning as a level in reasoning_effort; the key goes in Authorization: Bearer.</string>
+    <string name="reasoning_desc_high">Keeps long tasks together</string>
+    <string name="reasoning_desc_low">Quick answers, fewer tokens</string>
+    <string name="reasoning_desc_max">Everything the model can, with a noticeable delay</string>
+    <string name="reasoning_desc_medium">A balance of speed and accuracy</string>
+    <string name="reasoning_desc_minimal">A few tokens for a plan</string>
+    <string name="reasoning_desc_none">Answers without reasoning</string>
+    <string name="reasoning_desc_xhigh">For deep searches through code and call chains</string>
+    <string name="reasoning_none_for_model">This model does not reason, or does not say that it can.</string>
+    <string name="reasoning_sheet_body">How much the model thinks before it answers.</string>
+    <string name="reasoning_sheet_title">Reasoning</string>
+    <string name="rename_failed">That name is taken, or the folder could not be renamed</string>
+    <string name="rename_title">Rename the project</string>
+    <string name="scheme_custom_name">Custom endpoint</string>
+    <string name="scheme_sub_anthropic">Claude directly</string>
+    <string name="scheme_sub_custom">vLLM, llama.cpp, Ollama, LM Studio, your own proxy</string>
+    <string name="scheme_sub_kiro">With your account token</string>
+    <string name="scheme_sub_openai">GPT directly</string>
+    <string name="scheme_sub_openrouter">One key for every model</string>
+    <string name="settings_add_connection">Add a connection</string>
+    <string name="settings_add_connection_sub">A ready scheme or your own URL</string>
+    <string name="settings_connections">Connections</string>
+    <string name="settings_endpoint_failed">error</string>
+    <string name="settings_key_rejected">The key was not accepted: %1$s</string>
+    <string name="settings_language_fixed">Regardless of the system language</string>
+    <string name="settings_language_system_is">System — %1$s</string>
+    <string name="settings_loading_models">Loading models…</string>
+    <string name="settings_model">Model</string>
+    <string name="settings_reasoning">Reasoning</string>
+    <string name="settings_reasoning_none">Not offered by this model</string>
+    <string name="size_bytes">%1$d B</string>
+    <string name="size_kb">%1$s KB</string>
+    <string name="size_mb">%1$s MB</string>
+    <string name="split_auto">Auto</string>
+    <string name="split_both">Always two</string>
+    <string name="split_one">One pane</string>
+    <string name="suggest_explain">Explain how the project works</string>
+    <string name="suggest_tests">Add tests for what is there</string>
+    <string name="suggest_update_deps">Update the dependencies and check</string>
+    <string name="suggest_why_fails">Find out why it fails to start</string>
+    <string name="terminal_busy">running</string>
+    <string name="terminal_shell_name">Shell #%1$d</string>
+    <!-- A chat's transcript of the agent's own commands -->
+    <string name="terminal_agent_name">Agent</string>
+    <!-- The projects directory as the system file manager shows it -->
+    <string name="documents_root_summary">Projects</string>
+    <string name="explorer_open_externally">Open in Files</string>
+    <string name="explorer_open_file_externally">Open in another app</string>
+    <string name="explorer_no_file_manager">No app on this device opens that.</string>
+    <string name="terminal_agent_numbered">Agent #%1$d</string>
+    <string name="tool_status_asking">Asking</string>
+    <string name="note_anthropic">The key is sent as x-api-key, and anthropic-version: 2023-06-01 is added for you. The model list arrives with each model\'s limits and how it thinks: adaptively, with the level in output_config.effort, from Claude 4.6 on; with a token budget before that.</string>
+    <string name="note_openai">The key is sent as Authorization: Bearer. The answer limit goes in max_completion_tokens: reasoning models refuse max_tokens. The pro and codex families answer only on /responses, which needs an adapter of its own, so they are marked in the list.</string>
+    <string name="note_openrouter">The model list arrives with the limits: a context window for every model, an answer limit for nearly all, reasoning levels for about half; the rest use their default level. The list is public, so the key is checked on its own, on /key.</string>
+    <string name="note_kiro">Kiro has no public API: underneath it is Amazon Q Developer, reached the way Kiro Account Manager reaches it. A Google or GitHub sign-in needs only its refreshToken; a Builder ID one also its clientId and clientSecret, pasted as JSON or as the manager exports an account. The token is exchanged for an access token, the models come from ListAvailableModels, and replies arrive as an AWS event stream. An exchange can hand out a new refresh token, which signs out a Kiro IDE holding the old one, and the other way round. AWS does not endorse this use.</string>
+    <string name="note_custom">Base URL up to /v1; the app adds the route. Every server has /chat/completions; /messages is on Ollama from 0.14 and LM Studio, usually not on vLLM or llama.cpp. A local server rarely needs a key, and plain http is fine on your own network.</string>
+    <plurals name="ago_days">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="ago_hours">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
+    </plurals>
+    <plurals name="files_count">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="home_projects_on_device">
+        <item quantity="one">%d project on the device</item>
+        <item quantity="other">%d projects on the device</item>
+    </plurals>
+    <plurals name="models_count">
+        <item quantity="one">%d model</item>
+        <item quantity="other">%d models</item>
+    </plurals>
+</resources>

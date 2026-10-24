@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      The UI ships in English (values/) and Russian (values-ru/). Declared here
+      so Android 13+ lists the app under Settings › Apps › Language, which is
+      the same setting the in-app picker writes through LocaleManager.
+
+      The agent itself replies in whatever language the user writes in — that is
+      handled in the system prompt, not here.
+    -->
+    <locale android:name="en" />
+    <locale android:name="ru" />
+</locale-config>

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = ["apkcli-core", "execshim"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+libc = "0.2"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Size over speed for the shim; speed for the core.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+# Must stay "unwind": the JNI layer catches panics and rethrows them as Java
+# exceptions. With "abort" a single bad index in the search engine would take
+# the whole app down.
+panic = "unwind"
+strip = "debuginfo"
+
+[profile.release.package.execshim]
+opt-level = "z"

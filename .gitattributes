@@ -1,0 +1,6 @@
+# Line endings are normalised to LF in the repository, whatever the
+# contributor's core.autocrlf. The wrapper scripts keep the endings their
+# shells need: a CRLF gradlew fails on Linux with "bad interpreter".
+* text=auto
+gradlew text eol=lf
+*.bat text eol=crlf

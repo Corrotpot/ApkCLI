@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is allowed so LAN model servers work (LM Studio, llama.cpp, vLLM,
+  Ollama on a desktop almost never have TLS). Credentials are protected in code:
+  Http.transportRefusal refuses to attach an API key to a plain-HTTP request
+  whose host is not loopback, a private range, or a VPN/LAN name.
+
+  Trust anchors are the system store only. User-installed CAs are deliberately
+  not trusted: a dev tool that holds API keys should not be silently readable
+  by whatever proxy certificate happens to be installed on the phone.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

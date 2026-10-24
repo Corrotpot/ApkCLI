@@ -1,0 +1,43 @@
+[package]
+name = "apkcli-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Native core for ApkCLI: conversation store, workspace search, diffs, tokenisation, PTY and the load governor."
+
+[lib]
+name = "apkcli_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+jni = { version = "0.21", default-features = false }
+
+# Conversation store. `bundled` compiles SQLite from source with FTS5, JSON1
+# and R*Tree enabled, which means no reliance on the (old, varying) system
+# libsqlite3 on the device.
+rusqlite = { version = "0.32", features = ["bundled", "functions", "limits", "blob"] }
+
+# ripgrep's engine, used directly instead of shelling out to a binary.
+grep-searcher = "0.1"
+grep-regex = "0.1"
+grep-matcher = "0.1"
+ignore = "0.4"
+globset = "0.4"
+memchr = "2"
+# Already in the tree via grep-regex; declared explicitly because `outline`
+# uses it directly.
+regex = "1"
+
+similar = { version = "2", features = ["text", "inline"] }
+blake3 = "1"
+once_cell = "1"
+parking_lot = "0.12"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14"

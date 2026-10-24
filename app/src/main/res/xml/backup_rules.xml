@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!--
+      Back up the user's projects and settings. Nothing else.
+
+      This is an allowlist, not a denylist. As soon as one <include> is present,
+      Android backs up *only* the included paths, so everything below is omitted
+      by default:
+
+        usr/  — the toolchain, rebuilt from the APK on first run. Backing it up
+                would restore symlinks pointing at a nativeLibraryDir path that
+                no longer exists on the new install, which is worse than absent.
+        var/  — conversation database and caches. Large, and restoring a WAL
+                mid-checkpoint is a corruption risk.
+        apkcli_secrets.xml
+              — API keys, encrypted with a hardware-backed Keystore key that
+                does not leave the device. The ciphertext would be
+                undecryptable after a restore, so backing it up only produces a
+                confusing failure.
+
+      Stated as an allowlist on purpose: this is the posture where forgetting to
+      add something fails closed. Matching <exclude> entries used to be listed
+      here as documentation, but they are redundant under an allowlist and lint
+      rejects them (FullBackupContent: "not in an included path").
+    -->
+    <include domain="file" path="home/" />
+    <include domain="sharedpref" path="apkcli_settings.xml" />
+</full-backup-content>

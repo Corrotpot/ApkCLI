@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Model endpoints and web_fetch. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      The agent has to keep working while the user switches away to read
+      documentation or answer a message. Without a foreground service the
+      process is frozen or killed mid-turn, which loses the request that was
+      already paid for.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Held only while a turn is in flight. A completion can legitimately take
+      minutes on a reasoning model, and the device suspending the network
+      mid-stream aborts it.
+    -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application>
+
+        <!--
+          Hosts the agent loop. dataSync is the honest type: it processes the
+          user's own files and syncs with a remote endpoint on their behalf.
+        -->
+        <service
+            android:name="dev.apkcli.core.service.AgentService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!--
+          NOT YET SPLIT OUT: a ":shell" process for PTY work.
+          See docs/ARCHITECTURE.md, "Process isolation".
+
+          There is a real case for it. PtySession calls fork() directly from a
+          thread of a running JVM — necessary, because std::process cannot make
+          the child a session leader of a new controlling terminal, but also the
+          riskiest native code in the project. A separate process would mean a
+          bad fork or a runaway child takes down the terminal instead of the
+          editor and the conversation, and it would get its own heap budget,
+          which matters when a build log is hundreds of megabytes.
+
+          It is not done yet because the data path has to stay out of binder:
+          marshalling terminal bytes through IPC per chunk would be far worse
+          than the problem it solves. The correct design is to dup() the PTY
+          master in the shell process and hand it over as a ParcelFileDescriptor
+          so the caller does its own read/write on a real fd, with only open,
+          resize, kill and close crossing the boundary. That needs a new native
+          op, an AIDL interface, and a second read path in PtySession.
+
+          Until then PTY work runs in the main process. The load governor —
+          pools pinned per task class, bulk work on the little cluster — is what
+          actually keeps the UI smooth; process separation buys isolation and
+          heap, not latency.
+        -->
+
+    </application>
+
+</manifest>

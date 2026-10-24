@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name=".ApkCliApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ApkCli"
+        android:localeConfig="@xml/locales_config"
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="34"
+
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!--
+          networkSecurityConfig permits plain HTTP. Without it every http://
+          URL fails with "CLEARTEXT communication not permitted" (the default
+          since targetSdk 28, so both flavours), which rules out exactly the
+          endpoints a custom setup is for: LM Studio, llama.cpp or vLLM on the
+          LAN. The risk is handled in code instead — an API key is never sent
+          over HTTP to a host that is not loopback, private or VPN; see
+          Http.transportRefusal and NetworkHosts.
+        -->
+
+        <!--
+          extractNativeLibs="true" is mandatory here, not an optimisation.
+
+          With the modern (uncompressed, mapped-in-place) packaging the
+          installer never writes lib/<abi>/*.so to a real filesystem path, and a
+          library that exists only inside the APK cannot be exec()'d. Every
+          bundled command-line tool ships as lib*.so and is executed from
+          nativeLibraryDir, which is the only exec-permitted location available
+          to an unprivileged app. Turn extraction off and the whole shell
+          environment stops working.
+
+          It is deliberately NOT written as an attribute here. AGP owns this
+          flag and warns when a source manifest sets it; the single source of
+          truth is packaging.jniLibs.useLegacyPackaging = true in app and core
+          build.gradle.kts, from which AGP emits
+          android:extractNativeLibs="true" into the merged manifest. Verified
+          in app/build/intermediates/packaged_manifests/.
+
+          largeHeap is here because a session at a million tokens is tens of
+          megabytes of text, plus the editor's buffers.
+        -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|smallestScreenSize|locale|layoutDirection"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.ApkCli">
+
+            <!--
+              configChanges is unusually broad on purpose: a rotation or a
+              keyboard attach must not restart the Activity while a turn is
+              streaming or a terminal session is attached. Compose handles the
+              resize itself.
+
+              locale|layoutDirection are here for the in-app language switch:
+              on Android 13+ it arrives as a configuration change, and with
+              these declared it is applied in place, with the editor's unsaved
+              buffers and the split layout intact, instead of a restart.
+
+              adjustResize so the composer is not hidden behind the keyboard,
+              which is most of what this app does.
+            -->
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Open a file or folder from a file manager. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Lets the user pick a project directory outside the sandbox and have it
+          copied in. Direct editing of a SAF tree is not supported: the shell
+          needs real POSIX paths, and a document tree does not have any.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
+          ~/projects in the system file manager, so a file can be copied in
+          from Downloads, looked at from Files, or shared out.
+
+          permission="MANAGE_DOCUMENTS" is what makes this safe: only the
+          system's document UI holds it, so no other app can query the
+          provider, and one reaches a file only through a URI the user granted
+          it by picking that file. Exposes the projects directory alone — see
+          ProjectDocuments and xml/file_paths for what is deliberately left
+          out of both.
+        -->
+        <provider
+            android:name=".files.ProjectDocuments"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
+    </application>
+
+</manifest>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Minimal XML theme.
+
+      The real theming is in Compose (ui/theme/Theme.kt). This exists only to
+      give the Activity a window background and status/navigation bar behaviour
+      before the first composition, which is what stops the launch flash.
+
+      Dark by default: this is an editor, and the window background is matched to
+      the Compose dark surface colour so there is no visible change when Compose
+      takes over.
+    -->
+    <style name="Theme.ApkCli" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+    </style>
+</resources>

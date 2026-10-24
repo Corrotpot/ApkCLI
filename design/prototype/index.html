@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  ApkCLI design prototype. Built by tools/gen_design.py into one file with
+  the fonts, icons and tokens inlined; edit this, app.css and app.js, then
+  rebuild. Every size is in dp (1 CSS px), every text size in sp.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
+<title>ApkCLI — дизайн</title>
+<!-- @STYLE -->
+</head>
+<body>
+<div class="stage">
+  <aside class="panel" id="panel"></aside>
+  <main class="device-area" id="deviceArea">
+    <div class="device" id="device">
+      <div class="phone" id="phone">
+        <div class="sys-status" aria-hidden="true">
+          <span id="clock">12:30</span>
+          <span class="cam"></span>
+          <span class="sys-icons" id="sysIcons"></span>
+        </div>
+        <div class="viewport" id="viewport"></div>
+        <div class="sys-gesture" aria-hidden="true"><i></i></div>
+      </div>
+    </div>
+  </main>
+</div>
+<input type="file" id="filePick" accept="image/*" multiple hidden>
+<!-- @SCRIPT -->
+</body>
+</html>
