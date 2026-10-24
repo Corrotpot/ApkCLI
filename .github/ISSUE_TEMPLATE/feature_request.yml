@@ -1,0 +1,30 @@
+name: Feature request
+description: Something ApkCLI could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The task or the problem, not the solution yet.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: How it could work
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do now instead
+      description: A workaround, another app, or nothing.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      description: "Some things are possible only in the power build: see [docs/ANDROID_EXEC_NOTES.md](https://github.com/Corrotpot/ApkCLI/blob/main/docs/ANDROID_EXEC_NOTES.md)."
+      options:
+        - Both
+        - play
+        - power
+        - Not sure

@@ -355,9 +355,12 @@ tools/
   every claim.
 * [docs/TOOLCHAIN.md](docs/TOOLCHAIN.md) — where each pinned version came from.
 * [CONTRIBUTING.md](CONTRIBUTING.md) — the checks to run before a pull request.
+* [SECURITY.md](SECURITY.md) — how to report a vulnerability privately.
+* [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — the Contributor Covenant 2.1.
 
 The documents are also in Russian: [README.ru.md](README.ru.md),
-[docs/ru/](docs/ru/), [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md).
+[CONTRIBUTING.ru.md](CONTRIBUTING.ru.md), [SECURITY.ru.md](SECURITY.ru.md),
+[CODE_OF_CONDUCT.ru.md](CODE_OF_CONDUCT.ru.md) and [docs/ru/](docs/ru/).
 
 ## Licence
 

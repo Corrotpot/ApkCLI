@@ -1,0 +1,68 @@
+name: Сообщение об ошибке
+description: Что-то работает не так, как должно.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        О проблеме с безопасностью сообщайте [приватно](https://github.com/Corrotpot/ApkCLI/security/advisories/new), а не здесь.
+
+        **Никогда не вставляйте API-ключи, токены аккаунтов и другие секреты.** Уберите их и из логов, и со скриншотов.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло
+      description: Что вы сделали, что увидели и чего ожидали вместо этого.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      placeholder: |
+        1. Открыть проект
+        2. Попросить агента ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Сборка
+      options:
+        - play (targetSdk 36)
+        - power (targetSdk 28)
+        - Не знаю
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения или коммит
+      placeholder: "0.1.0 или хеш коммита"
+  - type: input
+    id: device
+    attributes:
+      label: Устройство и версия Android
+      placeholder: "Pixel 8, Android 15; или эмулятор API 34 x86_64"
+    validations:
+      required: true
+  - type: input
+    id: connection
+    attributes:
+      label: Подключение и модель
+      description: Схема и модель. Ключ — никогда.
+      placeholder: "Anthropic, claude-…; или кастомный эндпоинт vLLM"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      description: "`adb logcat` или вывод команды, которая упала. Показывается как код, обратные кавычки не нужны."
+      render: shell
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Перед отправкой
+      options:
+        - label: Ключи, токены и личные данные убраны из всего, что выше.
+          required: true

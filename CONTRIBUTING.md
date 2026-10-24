@@ -14,6 +14,9 @@ opening one.
   runtime layer.
 * For a large change, open an issue first, so the approach is agreed on before
   the work is done.
+* Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+* A security problem is reported privately, as [SECURITY.md](SECURITY.md)
+  describes, not in a public issue.
 
 ## Checks
 

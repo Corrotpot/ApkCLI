@@ -1,0 +1,68 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A security problem goes to a [private report](https://github.com/Corrotpot/ApkCLI/security/advisories/new), not here.
+
+        **Never paste API keys, account tokens or other secrets.** Remove them from logs and screenshots too.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a project
+        2. Ask the agent to ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - play (targetSdk 36)
+        - power (targetSdk 28)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      placeholder: "0.1.0, or a commit hash"
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Pixel 8, Android 15; or an API 34 x86_64 emulator"
+    validations:
+      required: true
+  - type: input
+    id: connection
+    attributes:
+      label: Connection and model
+      description: The scheme and the model. Never the key.
+      placeholder: "Anthropic, claude-…; or a custom vLLM endpoint"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "`adb logcat`, or the output of the command that failed. It is shown as code, no backticks needed."
+      render: shell
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Before sending
+      options:
+        - label: Keys, tokens and personal data are removed from everything above.
+          required: true

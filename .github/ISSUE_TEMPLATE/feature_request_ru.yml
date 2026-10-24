@@ -1,0 +1,30 @@
+name: Предложение
+description: Идея, что стоило бы добавить в ApkCLI.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что вы хотите сделать
+      description: Задача или проблема — решение пока не важно.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Как это могло бы работать
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Как вы обходитесь сейчас
+      description: Обходной путь, другое приложение или никак.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Сборка
+      description: "Кое-что возможно только в сборке power: см. [docs/ru/ANDROID_EXEC_NOTES.md](https://github.com/Corrotpot/ApkCLI/blob/main/docs/ru/ANDROID_EXEC_NOTES.md)."
+      options:
+        - Обе
+        - play
+        - power
+        - Не знаю

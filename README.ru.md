@@ -375,9 +375,13 @@ tools/
   закреплённая версия.
 * [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md) — какие проверки прогнать перед
   pull request.
+* [SECURITY.ru.md](SECURITY.ru.md) — как приватно сообщить об уязвимости.
+* [CODE_OF_CONDUCT.ru.md](CODE_OF_CONDUCT.ru.md) — кодекс поведения,
+  Contributor Covenant 2.1.
 
-Оригиналы на английском: [README.md](README.md), [docs/](docs/),
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Оригиналы на английском: [README.md](README.md),
+[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md),
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) и [docs/](docs/).
 
 ## Лицензия
 
