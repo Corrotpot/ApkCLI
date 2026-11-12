@@ -782,4 +782,8 @@
         <item quantity="many">%d моделей</item>
         <item quantity="other">%d модели</item>
     </plurals>
+    <!-- Уведомления, когда пользователь не в приложении: ход ждёт подтверждения или закончился -->
+    <string name="notify_channel">Подтверждения и ответы</string>
+    <string name="notify_approval_title">Нужно подтверждение</string>
+    <string name="notify_replied_title">Агент ответил</string>
 </resources>

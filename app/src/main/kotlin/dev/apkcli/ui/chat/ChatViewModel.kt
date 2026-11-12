@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.apkcli.ApkCliApplication
+import dev.apkcli.AppVisibility
 import dev.apkcli.R
 import dev.apkcli.core.AgentRuntime
 import dev.apkcli.core.agent.AgentEvent
@@ -37,10 +38,12 @@ import dev.apkcli.ui.EditorBus
 import dev.apkcli.ui.chat.components.partialStringValue
 import dev.apkcli.ui.chat.components.toolTargetPartial
 import dev.apkcli.ui.chat.find.FindHit
+import dev.apkcli.ui.chat.sheets.approvalTitleRes
 import dev.apkcli.ui.locale.AppLocales
 import dev.apkcli.ui.text.UiText
 import dev.apkcli.ui.text.explanationText
 import dev.apkcli.ui.text.headlineText
+import dev.apkcli.ui.text.resolve
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -342,6 +345,10 @@ class ChatViewModel(
 
     private var turnJob: Job? = null
 
+    /** The running turn ended because the user stopped it: nothing to tell them. */
+    @Volatile
+    private var stoppedByUser = false
+
     /**
      * Resolved when the user answers an approval dialog.
      *
@@ -395,6 +402,7 @@ class ChatViewModel(
         viewModelScope.launch { bootstrap() }
         observeSettings()
         observeNotificationStop()
+        observeLeaving()
     }
 
     /* ----------------------------------------------------------- lifecycle */
@@ -616,6 +624,63 @@ class ChatViewModel(
 
     fun consumeReturnedDraft() = _state.update { it.copy(returnedDraft = null) }
 
+    /* -------------------------------------------------------------- alerts */
+
+    /**
+     * A user who leaves while an approval is on screen gets the alert then:
+     * asked while they looked, it was not sent, and the turn would wait for
+     * them unseen.
+     */
+    private fun observeLeaving() {
+        viewModelScope.launch {
+            AppVisibility.onScreen.collect { onScreen ->
+                if (!onScreen) _state.value.approval?.let { alertApproval(it.toolName) }
+            }
+        }
+    }
+
+    /** [title] and [text] as a notification, if the app is not on screen. */
+    private fun alertIfAway(title: UiText, text: UiText) {
+        if (AppVisibility.onScreen.value) return
+        // The app's own language, which the application context lacks on
+        // Android 12 and older; see UiText.
+        val localized = AppLocales.wrap(appContext)
+        AgentService.alert(
+            context = appContext,
+            channelName = localized.getString(R.string.notify_channel),
+            title = title.resolve(localized),
+            text = text.resolve(localized),
+        )
+    }
+
+    private fun alertApproval(toolName: String) {
+        val question = when (toolName) {
+            "subagent_dispatch" -> UiText.res(R.string.approval_title_subagent)
+            else -> approvalTitleRes(toolName)?.let { UiText.res(it) }
+                ?: UiText.res(R.string.approval_title_other, toolName)
+        }
+        alertIfAway(UiText.res(R.string.notify_approval_title), question)
+    }
+
+    /** How the turn ended, for a user who is not looking: its error, or the start of the reply. */
+    private fun alertTurnEnded() {
+        val state = _state.value
+        val project = state.workspace?.name ?: "ApkCLI"
+        val error = state.error
+        if (error != null) {
+            alertIfAway(error.headline, UiText.raw(project))
+            return
+        }
+        val reply = state.messages.lastOrNull { it.role == Role.ASSISTANT }?.text
+            ?.lineSequence()
+            ?.map { line -> line.trim().trimStart('#', '>', ' ').replace("**", "").replace("`", "") }
+            ?.filter { it.isNotBlank() }
+            ?.joinToString(" ")
+            ?.take(ALERT_TEXT_CHARS)
+            ?.takeIf { it.isNotBlank() }
+        alertIfAway(UiText.res(R.string.notify_replied_title), UiText.raw(reply ?: project))
+    }
+
     /** The notification's Stop button cannot cancel the job; it flips a flag. */
     private fun observeNotificationStop() {
         viewModelScope.launch {
@@ -704,6 +769,7 @@ class ChatViewModel(
         }
         AgentService.start(appContext, "Thinking…")
 
+        stoppedByUser = false
         turnJob = viewModelScope.launch {
             try {
                 // The model first, here rather than only inside the runtime,
@@ -792,6 +858,7 @@ class ChatViewModel(
                     )
                 }
                 AgentService.finish(appContext)
+                if (!stoppedByUser) alertTurnEnded()
                 // A shell command can create or delete files no tool reports.
                 EditorBus.requestTreeRefresh()
                 refreshChanges()
@@ -943,6 +1010,7 @@ class ChatViewModel(
     }
 
     fun stop() {
+        stoppedByUser = true
         turnJob?.cancel()
         turnJob = null
         // Resolve anything the agent is blocked on, or the cancelled coroutine
@@ -1364,6 +1432,7 @@ class ChatViewModel(
                 .withCall(callId) { call -> call.copy(status = ToolCallStatus.PENDING, runningSince = null) }
         }
         AgentService.update(appContext, AgentService.AWAITING_APPROVAL_LABEL)
+        alertApproval(toolName)
         return try {
             answer.await().also { allowed ->
                 _state.update {
@@ -1381,6 +1450,7 @@ class ChatViewModel(
         } finally {
             approvalAnswer = null
             _state.update { it.copy(approval = null) }
+            AgentService.clearAlert(appContext)
         }
     }
 
@@ -2191,6 +2261,9 @@ class ChatViewModel(
 
     companion object {
         private const val TAG = "ChatViewModel"
+
+        /** How much of a reply the "the agent replied" alert shows. */
+        private const val ALERT_TEXT_CHARS = 300
 
         /**
          * Delta coalescing interval.

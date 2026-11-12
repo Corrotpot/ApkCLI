@@ -175,6 +175,10 @@ class AgentService : Service() {
         /** Backstop against a leaked lock; a turn should never run this long. */
         private const val WAKE_LOCK_TIMEOUT_MS = 30 * 60 * 1000L
 
+        /** The alert channel: what the user has to come back for. Not silent, unlike [CHANNEL_ID]. */
+        private const val ALERT_CHANNEL_ID = "agent_attention"
+        private const val ALERT_NOTIFICATION_ID = 1002
+
         const val ACTION_START = "dev.apkcli.agent.START"
         const val ACTION_UPDATE = "dev.apkcli.agent.UPDATE"
         const val ACTION_STOP_TURN = "dev.apkcli.agent.STOP_TURN"
@@ -212,6 +216,53 @@ class AgentService : Service() {
         fun finish(context: Context) {
             val intent = Intent(context, AgentService::class.java).setAction(ACTION_FINISH)
             runCatching { context.startService(intent) }
+        }
+
+        /**
+         * Tell a user who is away from the app that it needs them: an approval
+         * the turn is waiting on, or a turn that ended. The status notification
+         * cannot do that — it is silent by design, and a turn blocked on an
+         * approval used to wait there, unseen, until the user happened to look.
+         *
+         * A channel of its own at the default importance, so it sounds the way
+         * the user set it up in the system settings. The caller decides whether
+         * the user is away; [channelName] and the texts come in the app's own
+         * language, which this module cannot resolve. One alert at a time: a
+         * newer one replaces the last.
+         */
+        fun alert(context: Context, channelName: String, title: String, text: String) {
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // On every alert: cheap, and it renames the channel when the
+                // app's language has changed.
+                val channel = NotificationChannel(ALERT_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_DEFAULT)
+                runCatching { manager.createNotificationChannel(channel) }
+            }
+            val openApp = context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { intent ->
+                PendingIntent.getActivity(
+                    context,
+                    2,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+            }
+            val notification = NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setSmallIcon(R.drawable.ic_agent_notification)
+                .setContentIntent(openApp)
+                .setAutoCancel(true)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .build()
+            // Without the notification permission this shows nothing; the turn
+            // goes on either way.
+            runCatching { manager.notify(ALERT_NOTIFICATION_ID, notification) }
+        }
+
+        /** Take the alert down: the approval was answered, or the user is back. */
+        fun clearAlert(context: Context) {
+            runCatching { context.getSystemService(NotificationManager::class.java)?.cancel(ALERT_NOTIFICATION_ID) }
         }
 
         /**

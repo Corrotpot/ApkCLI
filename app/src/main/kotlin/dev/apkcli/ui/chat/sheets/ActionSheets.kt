@@ -1,5 +1,6 @@
 package dev.apkcli.ui.chat.sheets
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -212,18 +213,27 @@ fun ApprovalSheet(
 }
 
 @Composable
-private fun approvalTitle(tool: String): String = when (tool) {
-    "sh_exec", "sh_background" -> stringResource(R.string.approval_title_command)
-    "fs_write" -> stringResource(R.string.approval_title_write)
-    "fs_edit", "fs_multi_edit", "fs_apply_patch" -> stringResource(R.string.approval_title_edit)
-    "fs_delete" -> stringResource(R.string.approval_title_delete)
-    "fs_move" -> stringResource(R.string.approval_title_move)
-    "pkg_install" -> stringResource(R.string.approval_title_install)
-    "pkg_remove" -> stringResource(R.string.approval_title_uninstall)
-    "web_fetch" -> stringResource(R.string.approval_title_fetch)
-    "build_run" -> stringResource(R.string.approval_title_build)
-    "test_run" -> stringResource(R.string.approval_title_test)
-    else -> stringResource(R.string.approval_title_other, toolTitle(tool))
+private fun approvalTitle(tool: String): String =
+    approvalTitleRes(tool)?.let { stringResource(it) } ?: stringResource(R.string.approval_title_other, toolTitle(tool))
+
+/**
+ * The question an approval asks, by tool: "Run the command?". Null for a
+ * tool with no question of its own, which gets `approval_title_other` with
+ * its name. Shared with the alert that goes out when the user is away.
+ */
+@StringRes
+internal fun approvalTitleRes(tool: String): Int? = when (tool) {
+    "sh_exec", "sh_background" -> R.string.approval_title_command
+    "fs_write" -> R.string.approval_title_write
+    "fs_edit", "fs_multi_edit", "fs_apply_patch" -> R.string.approval_title_edit
+    "fs_delete" -> R.string.approval_title_delete
+    "fs_move" -> R.string.approval_title_move
+    "pkg_install" -> R.string.approval_title_install
+    "pkg_remove" -> R.string.approval_title_uninstall
+    "web_fetch" -> R.string.approval_title_fetch
+    "build_run" -> R.string.approval_title_build
+    "test_run" -> R.string.approval_title_test
+    else -> null
 }
 
 /**

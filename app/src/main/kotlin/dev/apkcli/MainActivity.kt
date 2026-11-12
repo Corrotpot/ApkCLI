@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import dev.apkcli.core.service.AgentService
 import dev.apkcli.ui.locale.AppLocales
 import dev.apkcli.ui.root.RootScreen
 import dev.apkcli.ui.theme.ApkCliTheme
@@ -67,6 +68,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppVisibility.set(true)
+        // Back in the app, whatever brought them: an alert about it is old news.
+        AgentService.clearAlert(this)
+    }
+
+    override fun onStop() {
+        AppVisibility.set(false)
+        super.onStop()
     }
 
     /**
