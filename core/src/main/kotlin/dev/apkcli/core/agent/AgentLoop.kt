@@ -167,16 +167,32 @@ class AgentLoop(
         var iterations = 0
         var stopReason = AgentEvent.StopReason.COMPLETED
 
-        // Compaction is attempted at most once per turn. Without this, a window
-        // that stays over the threshold after compacting — because what remains
-        // is pinned, or is one tool result larger than the recent-turn budget —
-        // sends the loop round again, and each round costs a summarising
-        // request. One failed attempt is a diagnosis, sixty is a bill.
-        var compactionAttempted = false
+        // The turn's config, with the model's window lowered once a provider
+        // has refused a request as too long; see the overflow branch below.
+        var current = config
+
+        // Compaction runs again in the same turn, as a long chain of tool
+        // calls fills the window again, but never twice in a row: a request
+        // goes between two, and at most MAX_COMPACTIONS_PER_TURN. It used to
+        // be once per turn, against a window that stays over the threshold
+        // after compacting (pinned messages, one result larger than the
+        // budget) sending the loop round again, each round a summarising
+        // request; a real request between compactions stops that loop as well,
+        // and the cap bounds it. Planning itself costs no request.
+        var compactions = 0
+        var sentSinceCompaction = true
+        var skipReported = false
+        // A provider's "too long" is answered by compacting and sending again,
+        // at most MAX_OVERFLOW_RECOVERIES times, instead of ending the turn.
+        var overflowRecoveries = 0
+        // What the user said in this turn: kept verbatim when its own oldest
+        // rounds are archived (ContextBudget.planDeep).
+        val turnUserSeqs = HashSet<Long>()
 
         try {
             if (userText != null) {
                 val user = appendUserMessage(config, ConversationStore.newId("m"), userText, attachments)
+                turnUserSeqs += user.seq
                 emit(AgentEvent.UserMessage(user))
 
                 // The first user message names the session. Done here rather
@@ -194,7 +210,9 @@ class AgentLoop(
                 // boundary: after the previous round's results are stored,
                 // before the request that should read it.
                 config.inbox?.drain()?.forEach { pending ->
-                    emit(AgentEvent.UserMessage(appendUserMessage(config, pending.id, pending.text, pending.images)))
+                    val sent = appendUserMessage(config, pending.id, pending.text, pending.images)
+                    turnUserSeqs += sent.seq
+                    emit(AgentEvent.UserMessage(sent))
                 }
 
                 // Recall only on the first iteration. It is keyed off what the
@@ -203,7 +221,7 @@ class AgentLoop(
                 // for an unchanged query.
                 val recallQuery = if (iterations == 1) userText?.takeIf { it.isNotBlank() } else null
 
-                val prepared = prepare(config, recallQuery)
+                val prepared = prepare(current, recallQuery)
                 lastAccounting = prepared.accounting
                 emit(AgentEvent.ContextUpdated(prepared.accounting))
 
@@ -221,11 +239,12 @@ class AgentLoop(
                     break
                 }
 
-                if (budget.needsCompaction(prepared.accounting) && !compactionAttempted) {
-                    compactionAttempted = true
-                    val plan = budget.planCompaction(prepared.messages, prepared.accounting)
+                if (budget.needsCompaction(prepared.accounting) && sentSinceCompaction && compactions < MAX_COMPACTIONS_PER_TURN) {
+                    val plan = budget.planCompaction(prepared.messages, prepared.accounting, turnUserSeqs)
                     if (budget.isWorthCompacting(plan, prepared.accounting)) {
-                        runCompaction(config, prepared, plan)
+                        compactions++
+                        sentSinceCompaction = false
+                        runCompaction(current, prepared, plan)
                         // The window changed; rebuild everything below it. This
                         // consumes an iteration deliberately, which is also the
                         // backstop if anything above goes wrong.
@@ -233,21 +252,55 @@ class AgentLoop(
                     }
                     // Over the threshold with nothing worth archiving. Send
                     // anyway: the provider may accept it, and if it does not,
-                    // the overflow error carries the real limit and teaches us
-                    // the window. Failing here would be worse than trying.
-                    // It was reported as a compaction starting, whose English
-                    // reason the chat then showed as if one ran.
+                    // the overflow is answered below. Said once a turn: the
+                    // chat showed the same note again on every round.
                     Log.i(TAG, "over budget but nothing worth archiving (${plan.reason}); sending as-is")
-                    emit(AgentEvent.CompactionSkipped(AgentEvent.CompactionSkipped.Why.NOTHING_ARCHIVABLE, manual = false))
+                    if (!skipReported) {
+                        skipReported = true
+                        emit(AgentEvent.CompactionSkipped(AgentEvent.CompactionSkipped.Why.NOTHING_ARCHIVABLE, manual = false))
+                    }
                 }
 
-                val outcome = streamAssistantTurn(this, config, prepared, iterations)
+                val outcome = streamAssistantTurn(this, current, prepared, iterations)
+                sentSinceCompaction = true
 
                 if (outcome.error != null) {
+                    val error = outcome.error
+                    // Too long for the provider: compact against the window it
+                    // allows and send again, rather than end a turn that may be
+                    // forty tool calls in. Kiro refuses a body by size before
+                    // the token budget sees it coming; others answer with the
+                    // real window. Either way the refusal arrives before any
+                    // reply, so nothing streamed is lost.
+                    if (error.kind == LlmError.Kind.CONTEXT_OVERFLOW &&
+                        overflowRecoveries < MAX_OVERFLOW_RECOVERIES &&
+                        iterations < config.maxIterations
+                    ) {
+                        overflowRecoveries++
+                        // The window that fits: the provider's word for it, or
+                        // a tenth under the prompt it just refused.
+                        val refused = prepared.accounting
+                        val window = (error.discoveredContextLimit ?: (refused.promptTokens * 9 / 10 + refused.maxOutputTokens))
+                            .coerceAtMost(current.model.contextWindow)
+                        current = current.copy(model = current.model.copy(contextWindow = window))
+                        val again = prepare(current, null)
+                        val plan = budget.planCompaction(again.messages, again.accounting, turnUserSeqs)
+                        if (budget.isWorthCompacting(plan, again.accounting)) {
+                            Log.i(TAG, "refused as too long at ${refused.describe()}; compacting to a $window-token window")
+                            // Kept for later turns; Failed below keeps it too,
+                            // when the turn cannot go on.
+                            error.discoveredContextLimit?.let { emit(AgentEvent.ContextLimitLearned(it)) }
+                            compactions++
+                            sentSinceCompaction = false
+                            runCompaction(current, again, plan)
+                            continue
+                        }
+                        Log.i(TAG, "refused as too long, and nothing worth archiving (${plan.reason})")
+                    }
                     // LlmError.discoveredContextLimit may carry the model's real
                     // window, parsed out of an overflow error. The caller
                     // persists it so the mistake is not repeated.
-                    emit(AgentEvent.Failed(outcome.error, outcome.error.retryable))
+                    emit(AgentEvent.Failed(error, error.retryable))
                     stopReason = AgentEvent.StopReason.ERROR
                     break
                 }
@@ -260,7 +313,7 @@ class AgentLoop(
                     break
                 }
 
-                executeToolCalls(this, config, outcome.assistantMessageId, outcome.toolUses, outcome.cutOff)
+                executeToolCalls(this, current, outcome.assistantMessageId, outcome.toolUses, outcome.cutOff)
 
                 if (iterations >= config.maxIterations) {
                     stopReason = AgentEvent.StopReason.ITERATION_LIMIT
@@ -1200,6 +1253,12 @@ class AgentLoop(
          * or a command to survive a crash, not a whole file being written in.
          */
         private const val STREAMING_ARGS_CAP = 512
+
+        /** Compactions one turn may run; see the loop in [run]. */
+        private const val MAX_COMPACTIONS_PER_TURN = 6
+
+        /** Requests refused as too long that one turn compacts and sends again. */
+        private const val MAX_OVERFLOW_RECOVERIES = 2
 
         /** How often a call being written reports its progress, and how much of it goes with the report. */
         private const val PROGRESS_INTERVAL_MS = 250L

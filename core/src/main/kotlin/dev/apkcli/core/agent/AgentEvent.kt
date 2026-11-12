@@ -114,6 +114,14 @@ sealed interface AgentEvent {
     }
 
     /**
+     * The provider refused a request as too long and said, or let us work
+     * out, how long one may be. The caller persists it as the model's window,
+     * so later turns budget for it from the start; this turn already does,
+     * and goes on after compacting instead of failing.
+     */
+    data class ContextLimitLearned(val contextWindow: Int) : AgentEvent
+
+    /**
      * /compact could not write its summary. Nothing was archived. [detail]
      * is the provider's or the parser's own words, when there are any.
      */

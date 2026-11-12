@@ -1420,6 +1420,10 @@ class ChatViewModel(
             is AgentEvent.SubagentStarted -> Unit
 
             is AgentEvent.SubagentFinished -> Unit
+
+            // Refused as too long and gone on after compacting: the window
+            // learned is kept, as an overflow that ended the turn keeps it.
+            is AgentEvent.ContextLimitLearned -> persistDiscoveredLimit(event.contextWindow)
         }
     }
 

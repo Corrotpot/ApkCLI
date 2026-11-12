@@ -135,8 +135,9 @@ class Compactor(
 
         val merged = previous?.mergedWith(produced) ?: produced
         // What the window gives back: the archived messages, less what the
-        // summary grew by over the one it replaces. Pinned messages stay.
-        val archivedTokens = span.filterNot { it.pinned }.sumOf { it.tokens.toLong() }
+        // summary grew by over the one it replaces. Pinned messages stay, and
+        // so do the ones the plan keeps; the summary still read them.
+        val archivedTokens = span.filterNot { it.pinned || it.seq in plan.keepSeqs }.sumOf { it.tokens.toLong() }
         val previousTokens = previous?.let { NativeCore.estimateTokens(it.render()).toLong() } ?: 0L
         val drafted = merged.copy(
             coversFromSeq = previous?.coversFromSeq ?: plan.archiveFromSeq,
@@ -158,13 +159,7 @@ class Compactor(
         // go into every request beside the very messages it summarises.
         val (digestId, archived) = withContext(NonCancellable) {
             val id = store.saveDigest(sessionId, finalDigest)
-            id to store.archive(
-                sessionId = sessionId,
-                fromSeq = plan.archiveFromSeq,
-                toSeq = plan.archiveToSeq,
-                digestId = id,
-                keepPinned = true,
-            )
+            id to archiveRuns(sessionId, plan, id)
         }
 
         return Result.Compacted(
@@ -345,7 +340,9 @@ class Compactor(
     ): Result {
         if (plan.isNoop) return Result.Skipped(plan.reason)
 
-        val span = messages.filter { it.seq in plan.archiveFromSeq..plan.archiveToSeq && !it.pinned }
+        val span = messages.filter {
+            it.seq in plan.archiveFromSeq..plan.archiveToSeq && !it.pinned && it.seq !in plan.keepSeqs
+        }
         val removed = "Turns ${plan.archiveFromSeq}–${plan.archiveToSeq} were removed " +
             "from the context window without being summarised, because the summarising " +
             "request could not be made: $reason.\n\n" +
@@ -377,13 +374,7 @@ class Compactor(
         )
         val (digestId, archived) = withContext(NonCancellable) {
             val id = store.saveDigest(sessionId, placeholder)
-            id to store.archive(
-                sessionId = sessionId,
-                fromSeq = plan.archiveFromSeq,
-                toSeq = plan.archiveToSeq,
-                digestId = id,
-                keepPinned = true,
-            )
+            id to archiveRuns(sessionId, plan, id)
         }
         Log.w(TAG, "emergency trim of session $sessionId: $reason")
         return Result.Compacted(
@@ -393,6 +384,28 @@ class Compactor(
             tokensFreed = placeholder.tokensFreed,
             digestTokens = digestTokens,
         )
+    }
+
+    /**
+     * Archive [plan]'s range under [digestId], run by run around the messages
+     * it keeps ([ContextBudget.Plan.archiveRuns]). Called inside the
+     * NonCancellable block that saved the digest: both or neither.
+     */
+    private suspend fun archiveRuns(sessionId: String, plan: ContextBudget.Plan, digestId: String): ConversationStore.ArchiveResult {
+        var archived = 0
+        var freed = 0L
+        for (run in plan.archiveRuns) {
+            val result = store.archive(
+                sessionId = sessionId,
+                fromSeq = run.first,
+                toSeq = run.last,
+                digestId = digestId,
+                keepPinned = true,
+            )
+            archived += result.archived
+            freed += result.tokensFreed
+        }
+        return ConversationStore.ArchiveResult(archived, freed)
     }
 
     /**

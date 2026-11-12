@@ -206,6 +206,22 @@ message while keeping the tool results that answer it leaves orphaned `tool`
 messages referencing a call the provider cannot see — a hard 400 on both
 protocols.
 
+It first archives whole turns and keeps the latest six verbatim. When that
+frees too little to bring the window down to 60% of the budget (a young chat,
+or one long chain of tool calls where the current turn is nearly all of the
+window), it goes further, oldest first: older turns, then the oldest rounds of
+the current turn. What the user said in that turn stays verbatim, and so does
+its latest round with everything after it. The cut falls only before a user
+or an assistant message, so calls and their results stay together. The kept
+messages inside the range are holes the store skips (`Plan.archiveRuns`).
+
+A turn compacts as often as the window fills, but never twice in a row: a
+request goes between two compactions, and there are at most six per turn. A
+request the provider refuses as too long (Kiro refuses a body by size, before
+the token budget sees it coming) no longer ends the turn. The loop lowers the
+model's window to what the refusal allows, compacts, and sends again, at most
+twice per turn. The learned window is persisted for later turns.
+
 ### Counted whole, sent whole
 
 * **The window is every live message.** `store.window` stopped at the newest

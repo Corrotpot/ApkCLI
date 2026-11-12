@@ -140,11 +140,110 @@ class ContextBudget(private val settings: ContextSettings) {
         val keptCount: Int,
         val estimatedTokensFreed: Int,
         val reason: String,
+        /**
+         * Messages inside the range that stay in the window: what the user
+         * said in the turn being worked on, when that turn's own oldest
+         * rounds are archived ([planDeep]).
+         */
+        val keepSeqs: Set<Long> = emptySet(),
     ) {
         val isNoop: Boolean get() = archivedCount == 0
+
+        /** [archiveFromSeq]..[archiveToSeq] less [keepSeqs], as the runs the store archives one by one. */
+        val archiveRuns: List<LongRange>
+            get() {
+                if (isNoop) return emptyList()
+                val runs = mutableListOf<LongRange>()
+                var start = archiveFromSeq
+                for (keep in keepSeqs.filter { it in archiveFromSeq..archiveToSeq }.sorted()) {
+                    if (keep > start) runs += start until keep
+                    start = keep + 1
+                }
+                if (start <= archiveToSeq) runs += start..archiveToSeq
+                return runs
+            }
     }
 
-    fun planCompaction(allMessages: List<Message>, accounting: Accounting): Plan {
+    /**
+     * What to archive before the next request.
+     *
+     * First by whole turns, keeping the latest [ContextSettings.keepRecentTurns]
+     * verbatim, as it always was. When that frees too little to bring the
+     * window under [TARGET_FRACTION] of the budget — a young chat, or one long
+     * chain of tool calls inside a single turn, where the current turn is
+     * nearly all of the window — [planDeep] goes past that rule. Without it a
+     * turn that read a dozen large logs could not be compacted at all and ran
+     * until the provider refused the request.
+     *
+     * @param keepSeqs what the user said in the turn being worked on: kept
+     *   verbatim by [planDeep] even when the rounds around it are archived.
+     */
+    fun planCompaction(allMessages: List<Message>, accounting: Accounting, keepSeqs: Set<Long> = emptySet()): Plan {
+        val messages = allMessages.filter { it.seq >= 0 }
+        val byTurns = planByTurns(allMessages, accounting)
+        if (messages.isEmpty()) return byTurns
+        val need = accounting.promptTokens - (accounting.promptBudget * TARGET_FRACTION).toInt()
+        if (!byTurns.isNoop && byTurns.estimatedTokensFreed >= need) return byTurns
+        val deep = planDeep(messages, accounting, keepSeqs, need)
+        return if (deep.estimatedTokensFreed > byTurns.estimatedTokensFreed) deep else byTurns
+    }
+
+    /**
+     * Whatever it takes, oldest first, to bring the window down by [need]:
+     * older turns whole, then the oldest rounds of the turn being worked on.
+     *
+     * Kept whatever the need: what the user said in that turn ([keepSeqs], or
+     * the last user message when none are given), its latest round of calls
+     * with everything after it — the results the model is about to read —
+     * and pinned messages. The cut falls only before a user or an assistant
+     * message, so calls are never parted from their results.
+     */
+    private fun planDeep(messages: List<Message>, accounting: Accounting, keepSeqs: Set<Long>, need: Int): Plan {
+        val keep = keepSeqs.ifEmpty {
+            messages.lastOrNull { it.role == Role.USER }?.let { setOf(it.seq) }.orEmpty()
+        }
+        val turnStart = messages.indexOfFirst { it.seq in keep }.let { if (it < 0) messages.size else it }
+        val lastRound = messages.indexOfLast { it.role == Role.ASSISTANT && it.toolUses.isNotEmpty() }
+        val protectFrom = if (lastRound > turnStart) lastRound else turnStart
+
+        var freed = 0
+        var archived = 0
+        var cut = -1
+        var cutFreed = 0
+        var cutArchived = 0
+        for (index in 0 until protectFrom) {
+            val message = messages[index]
+            if (message.seq !in keep && !message.pinned) {
+                freed += message.tokens
+                archived++
+            }
+            val next = messages.getOrNull(index + 1) ?: break
+            if (next.role == Role.USER || next.role == Role.ASSISTANT) {
+                cut = index
+                cutFreed = freed
+                cutArchived = archived
+                if (freed >= need) break
+            }
+        }
+        if (cut < 0 || cutArchived == 0) {
+            return Plan(0, -1, 0, messages.size, 0, "nothing older than the latest round to archive")
+        }
+        val from = messages.first().seq
+        val to = messages[cut].seq
+        val into = if (cut >= turnStart) "the oldest rounds of the current turn among them" else "older turns only"
+        return Plan(
+            archiveFromSeq = from,
+            archiveToSeq = to,
+            archivedCount = cutArchived,
+            keptCount = messages.size - cutArchived,
+            estimatedTokensFreed = cutFreed,
+            reason = "at ${(accounting.fraction * 100).toInt()}% of the prompt budget; archiving " +
+                "$cutArchived message(s), $into",
+            keepSeqs = keep.filterTo(HashSet()) { it in from..to },
+        )
+    }
+
+    private fun planByTurns(allMessages: List<Message>, accounting: Accounting): Plan {
         // Drop the synthetic entries the prompt builder prepends — the rendered
         // digest and the FTS recall block. They carry `seq = -1` because they
         // are not rows in the store.
@@ -263,5 +362,12 @@ class ContextBudget(private val settings: ContextSettings) {
     companion object {
         /** Mirrors `tokens.rs::TOOL_DEF_OVERHEAD`. */
         const val TOOL_DEF_OVERHEAD = 8
+
+        /**
+         * Where a compaction aims to leave the window, as a share of the
+         * prompt budget: low enough that the next rounds fit before the hard
+         * threshold comes round again, high enough to keep recent work verbatim.
+         */
+        const val TARGET_FRACTION = 0.6f
     }
 }
