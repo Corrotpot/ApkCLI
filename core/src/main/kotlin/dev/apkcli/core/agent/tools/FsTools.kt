@@ -40,7 +40,8 @@ import java.nio.charset.StandardCharsets
  *    blob store and records a snapshot row, which is what makes "revert this
  *    change" work from the UI hours later, after the session has been reopened.
  *  * Diffs and search/replace run in the native core: the forgiving matcher
- *    (exact, then trailing-whitespace-insensitive, then indentation-relative)
+ *    (exact, then trailing-whitespace-insensitive, then typographic, then
+ *    indentation-relative; on a miss, the closest lines)
  *    turns the single most common model mistake from a failed call into a
  *    successful one that reports how it matched.
  */
@@ -363,14 +364,18 @@ class FsEditTool : Tool {
         (default 1). If the count is wrong nothing changes and the error says how
         many were found, so add surrounding lines until `search` is unique. If the
         exact text is absent, matching retries ignoring trailing whitespace, then
-        ignoring indentation, re-indenting `replace` to fit; only the matched text
-        changes, and `replace` gets the file's line endings (CRLF stays CRLF). Copy
-        `search` from a recent fs_read, without the line-number prefix. Files that
-        are not UTF-8 text are refused.
+        also reading curly quotes, dashes and non-breaking spaces as plain ones,
+        then ignoring indentation, re-indenting `replace` to fit; only the matched
+        text changes, and `replace` gets the file's line endings (CRLF stays CRLF).
+        Copy `search` from a recent fs_read, without the line-number prefix. Files
+        that are not UTF-8 text are refused.
 
         Output: "Edited <path>: N replacement(s), +added/-removed lines.", plus a
-        note when a whitespace-tolerant match was used. On "not found", read the
-        file again before retrying.
+        note when a tolerant match was used. On "not found" the error shows the
+        file's lines closest to `search`, numbered as fs_read numbers them, or
+        says the replacement is already in the file: retry from those lines
+        rather than reading the file again. Only when it shows neither has the
+        file changed out from under you; then read it again.
     """.trimIndent()
 
     override val parameters = Schema.obj(required = listOf("path", "search", "replace")) {
@@ -429,6 +434,10 @@ class FsEditTool : Tool {
                     "trailing_whitespace" ->
                         "\nMatched after normalising trailing whitespace — your `search` " +
                             "had whitespace the file does not."
+                    "typographic" ->
+                        "\nMatched reading the file's curly quotes, dashes or non-breaking " +
+                            "spaces as plain ones; the replaced text now has the plain ones " +
+                            "your `replace` used."
                     "reindented" ->
                         "\nMatched ignoring indentation; the replacement was re-indented to " +
                             "the file's level. Your `search` had the wrong leading whitespace."
@@ -477,8 +486,9 @@ class FsMultiEditTool : Tool {
         written and the error names the edit by number.
 
         Output: "Applied N edit(s) to <path>." and one line per edit with its
-        replacement count and match strategy (exact, trailing_whitespace or
-        reindented), or "No net change" if the edits cancel out.
+        replacement count and match strategy (exact, trailing_whitespace,
+        typographic or reindented), or "No net change" if the edits cancel out. A
+        failed edit's error shows the closest lines, as fs_edit's does.
     """.trimIndent()
 
     override val parameters = Schema.obj(required = listOf("path", "edits")) {

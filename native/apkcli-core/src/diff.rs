@@ -3,13 +3,15 @@
 //!
 //! Models get indentation and trailing whitespace wrong constantly. A strict
 //! `String::replace` turns that into a failed tool call, a retry, and a few
-//! thousand wasted tokens. So `replace` degrades through three strategies
+//! thousand wasted tokens. So `replace` degrades through four strategies
 //! before giving up, and always reports which one it used so the UI can show
 //! "applied with reindentation" rather than silently changing something the
-//! model did not ask for.
+//! model did not ask for. When none matches, the error says what the file has
+//! instead (`miss_hint`), so the retry needs no fresh read of the file.
 
 use crate::error::{CoreError, Result};
 use similar::{ChangeTag, TextDiff};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -18,6 +20,9 @@ pub enum MatchStrategy {
     Exact,
     /// Matched after normalising trailing whitespace on each line.
     TrailingWhitespace,
+    /// Matched after also reading curly quotes, dashes and the non-breaking
+    /// spaces as their plain ASCII forms ([`fold_typography`]).
+    Typographic,
     /// Matched after removing the common indent from the pattern; the
     /// replacement was re-indented to the target's indentation.
     Reindented,
@@ -91,9 +96,10 @@ pub fn replace(
         ));
     }
 
-    let attempts: [MatchStrategy; 3] = [
+    let attempts: [MatchStrategy; 4] = [
         MatchStrategy::Exact,
         MatchStrategy::TrailingWhitespace,
+        MatchStrategy::Typographic,
         MatchStrategy::Reindented,
     ];
 
@@ -131,15 +137,17 @@ pub fn replace(
         });
     }
 
-    // Reaching here means all three strategies found zero occurrences: every
-    // path that found something returned above. So there is no hit count to
+    // Reaching here means every strategy found zero occurrences: every path
+    // that found something returned above. So there is no hit count to
     // report, and the message must not imply otherwise.
-    Err(CoreError::not_found(
-        "search string not found (tried exact, trailing-whitespace-insensitive \
-         and reindented matching). The file may have changed since it was read — \
-         re-read it first."
-            .to_string(),
-    ))
+    let tried = "tried exact, trailing-whitespace-insensitive, typographic and reindented matching";
+    Err(CoreError::not_found(match miss_hint(original, needle, replacement) {
+        Some(hint) => format!("search string not found ({tried}). {hint}"),
+        None => format!(
+            "search string not found ({tried}). The file may have changed since it \
+             was read — re-read it first."
+        ),
+    }))
 }
 
 fn try_strategy(
@@ -158,8 +166,198 @@ fn try_strategy(
             }
         }
         MatchStrategy::TrailingWhitespace => trailing_ws_replace(original, needle, replacement),
+        MatchStrategy::Typographic => typographic_replace(original, needle, replacement),
         MatchStrategy::Reindented => reindent_replace(original, needle, replacement),
     }
+}
+
+/// The plain ASCII form of a typographic look-alike: curly quotes, the
+/// hyphens and dashes and the minus sign, the non-breaking and fixed-width
+/// spaces. A file has them from a word processor or a web page; a model
+/// writes the ASCII ones. One char for one, so a match maps back to the file.
+fn fold_typography(c: char) -> char {
+    match c {
+        '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}' => '\'',
+        '\u{201C}' | '\u{201D}' | '\u{201E}' | '\u{201F}' => '"',
+        '\u{2010}'..='\u{2015}' | '\u{2212}' => '-',
+        '\u{00A0}' | '\u{2002}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}' => ' ',
+        _ => c,
+    }
+}
+
+/// `text` with trailing whitespace cut from every line and its typography
+/// folded, and for each byte of the result the span of `text` it came from.
+///
+/// A span rather than an offset, as in [`normalise_with_map`]: a curly quote
+/// is three bytes in the file and one here, so "the byte after it" has to be
+/// the end of the whole character, not the offset of its first byte plus one.
+fn folded_with_spans(text: &str) -> (String, Vec<(usize, usize)>) {
+    let mut folded = String::with_capacity(text.len());
+    let mut spans = Vec::with_capacity(text.len());
+    let mut offset = 0usize;
+    let mut lines = text.split('\n').peekable();
+    while let Some(line) = lines.next() {
+        for (index, c) in line.trim_end().char_indices() {
+            let start = offset + index;
+            let span = (start, start + c.len_utf8());
+            let mut buf = [0u8; 4];
+            let piece = fold_typography(c).encode_utf8(&mut buf);
+            folded.push_str(piece);
+            spans.extend(std::iter::repeat(span).take(piece.len()));
+        }
+        offset += line.len();
+        if lines.peek().is_some() {
+            folded.push('\n');
+            spans.push((offset, offset + 1));
+            offset += 1;
+        }
+    }
+    (folded, spans)
+}
+
+/// [`trailing_ws_replace`] with typography folded as well: found in a folded
+/// copy, spliced into the original, so every byte outside a match is kept.
+fn typographic_replace(original: &str, needle: &str, replacement: &str) -> Option<(String, usize)> {
+    let (folded_needle, _) = folded_with_spans(needle);
+    if folded_needle.is_empty() {
+        return None;
+    }
+    let (folded, spans) = folded_with_spans(original);
+    let bytes = folded.as_bytes();
+
+    let mut out = String::with_capacity(original.len() + replacement.len());
+    let mut copied = 0usize;
+    let mut count = 0usize;
+    for (start, matched) in folded.match_indices(folded_needle.as_str()) {
+        let end = start + matched.len();
+        // As in trailing_ws_replace: a match that starts at a line break
+        // takes the whitespace before it, one that ends at the end of a line
+        // leaves that line's trailing whitespace and its `\r` in place.
+        let from = if bytes[start] == b'\n' {
+            if start == 0 { 0 } else { spans[start - 1].1 }
+        } else {
+            spans[start].0
+        };
+        let to = if end == folded.len() || bytes[end] == b'\n' {
+            spans[end - 1].1
+        } else {
+            spans[end].0
+        };
+        let from = from.max(copied);
+        out.push_str(&original[copied..from]);
+        out.push_str(replacement);
+        copied = to.max(from);
+        count += 1;
+    }
+    if count == 0 {
+        return None;
+    }
+    out.push_str(&original[copied..]);
+    Some((out, count))
+}
+
+/// Lines a miss hint shows at most, and the longest part of one it shows.
+const HINT_LINES: usize = 12;
+const HINT_LINE_CHARS: usize = 200;
+
+/// A replacement shorter than this, found in the file, proves nothing: short
+/// text occurs anywhere.
+const APPLIED_MIN_CHARS: usize = 20;
+
+/// What to tell the model when no strategy matched, so that its next attempt
+/// can succeed without reading the file again: that the replacement is
+/// already there (an edit that applied, sent a second time), or the lines of
+/// the file closest to `needle`. `None` when the file has nothing like it.
+fn miss_hint(original: &str, needle: &str, replacement: &str) -> Option<String> {
+    let (folded_file, _) = folded_with_spans(original);
+    let (folded_replacement, _) = folded_with_spans(replacement);
+    let applied = folded_replacement.trim();
+    if applied.chars().count() >= APPLIED_MIN_CHARS && folded_file.contains(applied) {
+        return Some(
+            "The replacement text is already in the file, so this edit may have \
+             been applied already. Check the file before sending it again."
+                .to_string(),
+        );
+    }
+    closest_lines(original, needle)
+}
+
+/// The run of lines in `original` that `needle` most likely meant, numbered
+/// as fs_read numbers them.
+///
+/// Each line of `needle` votes for where `needle` would start, at every line
+/// of the file equal to it once whitespace runs and typography are ignored.
+/// Lines with no letter or digit (`}`, `*/`) do not vote: they are
+/// everywhere. The start most lines agree on wins, if at least half of the
+/// lines that could vote did; only the lines from its first match to its last
+/// are shown, at most [`HINT_LINES`].
+fn closest_lines(original: &str, needle: &str) -> Option<String> {
+    fn key(line: &str) -> String {
+        let folded: String = line.chars().map(fold_typography).collect();
+        folded.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+    fn votes_at_all(key: &str) -> bool {
+        key.chars().any(char::is_alphanumeric)
+    }
+
+    let lines: Vec<&str> = original
+        .split('\n')
+        .map(|line| line.strip_suffix('\r').unwrap_or(line))
+        .collect();
+    let mut positions: HashMap<String, Vec<usize>> = HashMap::new();
+    for (index, line) in lines.iter().enumerate() {
+        let k = key(line);
+        if votes_at_all(&k) {
+            positions.entry(k).or_default().push(index);
+        }
+    }
+
+    let wanted: Vec<String> = needle.split('\n').map(key).collect();
+    let mut voters = 0usize;
+    let mut votes: HashMap<isize, usize> = HashMap::new();
+    for (offset, k) in wanted.iter().enumerate() {
+        if !votes_at_all(k) {
+            continue;
+        }
+        voters += 1;
+        for &index in positions.get(k).map(Vec::as_slice).unwrap_or(&[]) {
+            *votes.entry(index as isize - offset as isize).or_default() += 1;
+        }
+    }
+    // The most votes; of starts with as many, the earliest.
+    let (start, count) = votes
+        .into_iter()
+        .max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)))?;
+    if count == 0 || count * 2 < voters {
+        return None;
+    }
+
+    let matched: Vec<usize> = wanted
+        .iter()
+        .enumerate()
+        .filter_map(|(offset, k)| {
+            let index = start + offset as isize;
+            let hit = !k.is_empty()
+                && index >= 0
+                && (index as usize) < lines.len()
+                && key(lines[index as usize]) == *k;
+            hit.then_some(index as usize)
+        })
+        .collect();
+    let from = *matched.first()?;
+    let to = (*matched.last()? + 1).min(from + HINT_LINES);
+
+    let mut hint = String::from(
+        "The closest lines in the file, numbered as fs_read shows them (the numbers \
+         are not part of the file):",
+    );
+    for (index, line) in lines[from..to].iter().enumerate() {
+        let shown: String = line.chars().take(HINT_LINE_CHARS).collect();
+        let cut = if line.chars().count() > HINT_LINE_CHARS { "…" } else { "" };
+        hint.push_str(&format!("\n{:>5}  {shown}{cut}", from + index + 1));
+    }
+    hint.push_str("\nCopy `search` from these lines exactly.");
+    Some(hint)
 }
 
 /// `original` with trailing whitespace removed from every line, and for each
@@ -610,6 +808,74 @@ mod tests {
         let patch = "@@ -1,2 +1,2 @@\n-a\n+A\n \n";
         let out = apply_unified(original, patch, 20).unwrap();
         assert_eq!(out, "A\n\nb\n");
+    }
+
+    #[test]
+    fn typographic_quotes_and_dashes_match_their_ascii_forms() {
+        // The file has what a word processor writes; the model writes ASCII.
+        let file = "a\nprint(\u{201C}hi\u{201D}) \u{2014} it\u{2019}s ok\nb\n";
+        let out = replace(file, "print(\"hi\") - it's ok", "print(\"bye\")", Some(1), "f.py").unwrap();
+        assert_eq!(out.strategy, MatchStrategy::Typographic);
+        assert_eq!(out.content, "a\nprint(\"bye\")\nb\n");
+    }
+
+    #[test]
+    fn a_typographic_match_is_cut_on_whole_characters() {
+        // A curly quote is three bytes in the file and one in the folded
+        // copy: the cut after it must fall after all three.
+        let mid = replace("say \u{201C}hi\u{201D} now\n", "\"hi\"", "'yo'", Some(1), "f.txt").unwrap();
+        assert_eq!(mid.content, "say 'yo' now\n");
+        let end = replace("x = \u{2018}a\u{2019}\u{00A0}+ 1\n", "'a' + 1", "'b' + 2", Some(1), "f.txt").unwrap();
+        assert_eq!(end.strategy, MatchStrategy::Typographic);
+        assert_eq!(end.content, "x = 'b' + 2\n");
+    }
+
+    #[test]
+    fn a_typographic_match_keeps_crlf() {
+        let out = replace("one\r\nit\u{2019}s\r\nthree\r\n", "it's\nthree", "IT\nTHREE", Some(1), "f.txt").unwrap();
+        assert_eq!(out.strategy, MatchStrategy::Typographic);
+        assert_eq!(out.content, "one\r\nIT\r\nTHREE\r\n");
+    }
+
+    #[test]
+    fn a_miss_shows_the_closest_lines_numbered_as_fs_read_does() {
+        let file = "fn main() {\n    let total = items.len();\n    println!(\"{}\", total);\n}\n";
+        // One line of three is wrong: `count` for `total`.
+        let needle = "    let total = items.len();\n    println!(\"{}\", count);\n}";
+        let err = replace(file, needle, "x", Some(1), "f.rs").unwrap_err();
+        assert_eq!(err.kind(), "not_found");
+        let message = err.to_string();
+        assert!(message.contains("\n    2      let total = items.len();"), "{message}");
+        assert!(message.contains("\n    3      println!(\"{}\", total);"), "{message}");
+        assert!(message.contains("\n    4  }"), "{message}");
+        assert!(!message.contains("fn main"), "only the lines it meant: {message}");
+    }
+
+    #[test]
+    fn a_miss_says_when_the_edit_is_already_there() {
+        let file = "a\nlet greeting = \"hello, world\";\nb\n";
+        let err = replace(file, "let greeting = \"hello\";", "let greeting = \"hello, world\";", Some(1), "f.js").unwrap_err();
+        assert!(err.to_string().contains("already in the file"), "{err}");
+    }
+
+    #[test]
+    fn a_miss_with_nothing_alike_says_to_re_read() {
+        let message = replace("alpha\nbeta\n", "gamma delta", "x", Some(1), "f.txt").unwrap_err().to_string();
+        assert!(message.contains("re-read it first"), "{message}");
+        assert!(!message.contains("closest lines"), "{message}");
+    }
+
+    #[test]
+    fn a_hint_stays_short_however_long_the_search() {
+        let long = "x".repeat(300);
+        let file: String = (1..=40).map(|i| format!("line number {i} {long}\n")).collect();
+        // Every line right but the first, so the vote is clear.
+        let mut needle: String = (1..=30).map(|i| format!("line number {i} {long}\n")).collect();
+        needle.replace_range(0..4, "LINE");
+        let message = replace(&file, &needle, "y", Some(1), "f.txt").unwrap_err().to_string();
+        assert_eq!(message.lines().filter(|l| l.contains("line number")).count(), HINT_LINES);
+        assert!(message.contains('…'));
+        assert!(message.len() < HINT_LINES * (HINT_LINE_CHARS + 20) + 400);
     }
 
     /// The keys are the contract with `FsEditTool`; snake_case here was the

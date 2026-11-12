@@ -39,7 +39,7 @@ bad index in the search engine would take the whole app down.
 | --- | --- |
 | `store` | A million-token session is tens of megabytes of text. In a JVM object graph that is a multi-second cold start and a heap the low-memory killer notices. |
 | `search` | ripgrep's engine as a library. No process spawn, no output parsing, and it works on the Play flavour where a downloaded `rg` could not be executed. |
-| `diff` | Three-strategy forgiving match (exact, trailing-whitespace-insensitive, reindented). Hot enough to matter, and the logic is testable on a host. |
+| `diff` | Four-strategy forgiving match (exact, trailing-whitespace-insensitive, typographic, reindented), and on a miss the file's closest lines for the error. Hot enough to matter, and the logic is testable on a host. |
 | `tokens` | Called on every redraw of the context meter and for every tool result. A real BPE pass over a megabyte on each is not viable. |
 | `pty` | Needs `fork`, `setsid`, `TIOCSCTTY` — none of which the JVM exposes. |
 | `sched` | CPU topology from `/sys`, `sched_setaffinity`, `setpriority`. |
