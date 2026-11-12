@@ -2255,6 +2255,8 @@ class ChatViewModel(
     }
 
     override fun onCleared() {
+        // The screen is gone with the turn: no "the agent replied" for it.
+        stoppedByUser = true
         turnJob?.cancel()
         super.onCleared()
     }
