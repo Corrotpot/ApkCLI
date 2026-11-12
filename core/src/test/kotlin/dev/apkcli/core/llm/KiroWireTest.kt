@@ -214,6 +214,27 @@ class KiroWireTest {
     }
 
     @Test
+    fun `a message the user sent between rounds goes with the results before it`() {
+        val body = KiroWire.body(
+            request(
+                listOf(
+                    message(Role.USER, Block.Text("Read it")),
+                    message(Role.ASSISTANT, Block.ToolUse("t1", "fs_read", """{"path":"a.py"}""")),
+                    message(Role.TOOL, Block.ToolResult("t1", "fs_read", "print(1)")),
+                    message(Role.USER, Block.Text("Also check b.py")),
+                ),
+            ),
+            profileArn = null,
+            conversationId = "c1",
+        ).json
+        val current = body.current()
+        assertEquals("Also check b.py", current.text("content"))
+        val result = current["userInputMessageContext"]!!.jsonObject["toolResults"]!!.jsonArray[0].jsonObject
+        assertEquals("the call stays paired", "t1", result.text("toolUseId"))
+        assertTrue(body.history().none { it["userInputMessage"]?.jsonObject?.text("content") == "Also check b.py" })
+    }
+
+    @Test
     fun `a failed tool says so in its text, with the status Kiro takes`() {
         val body = KiroWire.body(
             request(

@@ -786,4 +786,9 @@
     <string name="notify_channel">Подтверждения и ответы</string>
     <string name="notify_approval_title">Нужно подтверждение</string>
     <string name="notify_replied_title">Агент ответил</string>
+    <!-- Сообщения, отправленные, пока агент работает: ждут над полем ввода его следующего шага -->
+    <string name="queued_title">Уйдёт агенту на следующем шаге</string>
+    <string name="queued_images">Изображения</string>
+    <string name="queued_withdraw">Вернуть в поле ввода</string>
+    <string name="a11y_queue_message">Отправить на следующем шаге агента</string>
 </resources>

@@ -774,4 +774,9 @@
     <string name="notify_channel">Approvals and replies</string>
     <string name="notify_approval_title">Approval needed</string>
     <string name="notify_replied_title">The agent replied</string>
+    <!-- Messages sent while the agent works, waiting above the composer for its next step -->
+    <string name="queued_title">Goes to the agent at its next step</string>
+    <string name="queued_images">Images</string>
+    <string name="queued_withdraw">Take back to the input box</string>
+    <string name="a11y_queue_message">Send at the agent\'s next step</string>
 </resources>

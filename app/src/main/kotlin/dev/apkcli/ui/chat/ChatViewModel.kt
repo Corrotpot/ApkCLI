@@ -17,6 +17,7 @@ import dev.apkcli.core.agent.ContextBudget
 import dev.apkcli.core.agent.MemoryScopes
 import dev.apkcli.core.agent.ProjectInstructions
 import dev.apkcli.core.agent.ToolDisplay
+import dev.apkcli.core.agent.TurnInbox
 import dev.apkcli.core.agent.UiBridge
 import dev.apkcli.core.model.AgentDefinition
 import dev.apkcli.core.model.AppSettings
@@ -166,6 +167,12 @@ class ChatViewModel(
         val thumbnail: androidx.compose.ui.graphics.ImageBitmap,
     )
 
+    /**
+     * A message sent while the agent works, waiting for its next step (see
+     * TurnInbox). [id] is the one its stored message will have.
+     */
+    data class Queued(val id: String, val text: String, val attachments: List<Attachment>)
+
     /** A checkpoint the user asked to restore, waiting for them to confirm. */
     data class CheckpointPrompt(
         /** The user message the checkpoint sits above. */
@@ -288,6 +295,10 @@ class ChatViewModel(
         val openThinking: Set<String> = emptySet(),
         /** Images to send with the next message. */
         val attachments: List<Attachment> = emptyList(),
+        /** Sent while the agent works, not taken by it yet. */
+        val queued: List<Queued> = emptyList(),
+        /** A turn is running that takes messages sent meanwhile; a manual /compact does not. */
+        val turnRunning: Boolean = false,
         /** Images being read and scaled; the composer shows a placeholder for each. */
         val preparingAttachments: Int = 0,
         /** A project being brought in, or why the last one could not be. */
@@ -348,6 +359,10 @@ class ChatViewModel(
     /** The running turn ended because the user stopped it: nothing to tell them. */
     @Volatile
     private var stoppedByUser = false
+
+    /** Where messages sent during the running turn wait for it; null between turns. */
+    @Volatile
+    private var inbox: TurnInbox? = null
 
     /**
      * Resolved when the user answers an approval dialog.
@@ -740,6 +755,63 @@ class ChatViewModel(
         current.copy(attachments = current.attachments.filterNot { it.id == id })
     }
 
+    /**
+     * Sent while the agent works: the loop takes it at its next step, after
+     * the tool calls running now, without stopping anything (TurnInbox). It
+     * waits above the composer until then, where it can be taken back. With
+     * no turn to take it — a manual /compact holds `busy` too — the words go
+     * back to the composer rather than vanish with it cleared.
+     */
+    private fun queue(text: String, trimmed: String, attached: List<Attachment>) {
+        val inbox = inbox
+        if (inbox == null) {
+            _state.update { it.copy(returnedDraft = text) }
+            return
+        }
+        val id = ConversationStore.newId("m")
+        _state.update { it.copy(queued = it.queued + Queued(id, trimmed, attached), attachments = emptyList()) }
+        inbox.offer(TurnInbox.Pending(id, trimmed, attached.map { it.image }))
+        followBottom = true
+    }
+
+    /** Back to the composer, if the loop has not taken it yet; taken, it arrives as sent. */
+    fun withdrawQueued(id: String) {
+        val queued = _state.value.queued.firstOrNull { it.id == id } ?: return
+        if (inbox?.withdraw(id) != true) return
+        _state.update {
+            it.copy(
+                queued = it.queued.filterNot { q -> q.id == id },
+                returnedDraft = queued.text,
+                attachments = queued.attachments + it.attachments,
+            )
+        }
+    }
+
+    /**
+     * What [turnInbox] still holds as its turn ends. Stopped or failed, it goes
+     * back to the composer, words and images, for the user to look at again.
+     * Otherwise it came after the loop's last look and is what the user wants
+     * next: its words are returned for [send], as one message, with its images
+     * put back to go with them.
+     */
+    private fun takeBackQueued(turnInbox: TurnInbox): String? {
+        if (inbox === turnInbox) inbox = null
+        val left = turnInbox.drain().map { it.id }.toSet()
+        if (left.isEmpty()) return null
+        val queued = _state.value.queued.filter { it.id in left }
+        val words = queued.map { it.text }.filter { it.isNotBlank() }.joinToString("\n\n")
+        val images = queued.flatMap { it.attachments }
+        val returned = stoppedByUser || _state.value.error != null
+        _state.update {
+            it.copy(
+                queued = it.queued.filterNot { q -> q.id in left },
+                returnedDraft = if (returned) words.ifBlank { null } else it.returnedDraft,
+                attachments = images + it.attachments,
+            )
+        }
+        return if (returned) null else words
+    }
+
     fun send(text: String) {
         val trimmed = text.trim()
         // A command runs instead of being sent; one that cannot run now
@@ -757,15 +829,27 @@ class ChatViewModel(
         val sessionId = snapshot.sessionId ?: return
         val workspace = snapshot.workspace ?: return
         val agent = snapshot.activeAgent ?: return
-        if (snapshot.busy) return
+        if (snapshot.busy) {
+            queue(text, trimmed, attached)
+            return
+        }
         val attachments = attached.map { it.image }
+        val turnInbox = TurnInbox()
+        inbox = turnInbox
 
         // Whoever sends wants to watch the answer, wherever they had scrolled.
         followBottom = true
         // A compaction that failed, stopped or was not worth it was never
         // part of the conversation: the next message takes it away.
         _state.update {
-            it.copy(busy = true, error = null, compactionNote = null, compaction = null, attachments = emptyList())
+            it.copy(
+                busy = true,
+                turnRunning = true,
+                error = null,
+                compactionNote = null,
+                compaction = null,
+                attachments = emptyList(),
+            )
         }
         AgentService.start(appContext, "Thinking…")
 
@@ -807,6 +891,7 @@ class ChatViewModel(
                     approvals = this@ChatViewModel,
                     userLanguage = userLanguageName(),
                     liveAgent = { _state.value.activeAgent },
+                    inbox = turnInbox,
                 ).collect { event -> handle(event) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -844,6 +929,7 @@ class ChatViewModel(
                         ?.let { stoppedMessage(it, sessionId) }
                     current.copy(
                         busy = false,
+                        turnRunning = false,
                         streaming = null,
                         loadingModels = false,
                         inFlightTools = emptyMap(),
@@ -858,10 +944,12 @@ class ChatViewModel(
                     )
                 }
                 AgentService.finish(appContext)
-                if (!stoppedByUser) alertTurnEnded()
+                val nextTurn = takeBackQueued(turnInbox)
+                if (!stoppedByUser && nextTurn == null) alertTurnEnded()
                 // A shell command can create or delete files no tool reports.
                 EditorBus.requestTreeRefresh()
                 refreshChanges()
+                nextTurn?.let(::send)
             }
         }
     }
@@ -1016,7 +1104,7 @@ class ChatViewModel(
         // Resolve anything the agent is blocked on, or the cancelled coroutine
         // never unwinds past the awaiting dialog.
         approvalAnswer?.complete(false)
-        _state.update { it.copy(busy = false, approval = null, inFlightTools = emptyMap()) }
+        _state.update { it.copy(busy = false, turnRunning = false, approval = null, inFlightTools = emptyMap()) }
         AgentService.finish(appContext)
     }
 
@@ -1041,7 +1129,13 @@ class ChatViewModel(
 
         when (event) {
             is AgentEvent.UserMessage ->
-                _state.update { it.copy(messages = it.messages + event.message) }
+                _state.update { state ->
+                    state.copy(
+                        messages = state.messages + event.message,
+                        // A queued one, taken by the loop: in the transcript now.
+                        queued = state.queued.filterNot { it.id == event.message.id },
+                    )
+                }
 
             is AgentEvent.AssistantStarted -> {
                 pendingTextUpdate = StringBuilder()

@@ -721,6 +721,46 @@ fun ChangesBar(
 }
 
 /**
+ * Messages sent while the agent works, until its next step takes them (see
+ * TurnInbox): the start of each, and a way to take it back to the composer.
+ * In the changes bar's place, above the composer, and as plain as it.
+ */
+@Composable
+fun QueuedPlaque(queued: List<ChatViewModel.Queued>, onWithdraw: (String) -> Unit) {
+    if (queued.isEmpty()) return
+    val shape = RoundedCornerShape(Design.Radius.Button)
+    Column(
+        Modifier
+            .padding(start = 12.dp, end = 12.dp, bottom = 8.dp)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Design.Colors.Surface1)
+            .border(1.dp, Design.Colors.Border, shape)
+            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+    ) {
+        Text(stringResource(R.string.queued_title), style = Design.Type.Caption, color = Design.Colors.TextSecondary)
+        queued.forEach { item ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    item.text.ifBlank { stringResource(R.string.queued_images) },
+                    style = Design.Type.Body,
+                    color = Design.Colors.Text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                IconBtn(
+                    Codicons.Close,
+                    contentDescription = stringResource(R.string.queued_withdraw),
+                    onClick = { onWithdraw(item.id) },
+                    size = IconBtnSize.Small,
+                )
+            }
+        }
+    }
+}
+
+/**
  * [sum] at the start and [actions] at the end of one line when both fit at
  * their full width, otherwise [actions] on a second line, at the end. The
  * sum is never measured narrower than it wants, so it is never cut; only a
@@ -839,6 +879,8 @@ fun ComposerBox(
     command: ChatCommands.Command? = null,
     /** [command] can run now. */
     commandEnabled: Boolean = false,
+    /** While [busy], a message can still go: the turn takes it at its next step. */
+    canQueue: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -898,6 +940,20 @@ fun ComposerBox(
                 }
                 Box(Modifier.weight(1f))
                 if (busy) {
+                    // Words typed while the agent works can go now, to be read
+                    // at its next step; stop stays beside them, never replaced.
+                    val hasWords = value.isNotBlank() || attachments.isNotEmpty()
+                    if (canQueue && hasWords && command == null) {
+                        val ready = preparingAttachments == 0
+                        SendButton(enabled = ready, description = stringResource(R.string.a11y_queue_message), onClick = onSend) {
+                            Icon(
+                                Codicons.ArrowUp,
+                                null,
+                                tint = if (ready) Design.Colors.OnPrimary else Design.Colors.TextDisabled,
+                                modifier = Modifier.size(Design.Size.IconSmall),
+                            )
+                        }
+                    }
                     SendButton(enabled = true, description = stringResource(R.string.a11y_stop_turn), onClick = onStop) {
                         Box(Modifier.size(10.dp).background(Design.Colors.OnPrimary, RoundedCornerShape(2.dp)))
                     }

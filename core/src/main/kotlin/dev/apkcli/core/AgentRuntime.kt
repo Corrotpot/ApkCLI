@@ -326,6 +326,7 @@ class AgentRuntime(
         approvals: ApprovalGate,
         userLanguage: String? = null,
         liveAgent: (() -> AgentDefinition?)? = null,
+        inbox: dev.apkcli.core.agent.TurnInbox? = null,
     ): Flow<AgentEvent> = flow {
         val ready = when (val resolution = resolveModel(settings)) {
             is ModelResolution.Ready -> resolution
@@ -365,6 +366,7 @@ class AgentRuntime(
             },
             userLanguage = userLanguage,
             liveAgent = liveAgent,
+            inbox = inbox,
         )
 
         loop(turnSettings).run(config, userText, attachments).collect { emit(it) }

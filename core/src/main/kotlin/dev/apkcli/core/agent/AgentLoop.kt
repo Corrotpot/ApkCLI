@@ -126,6 +126,8 @@ class AgentLoop(
          * subagent's go into the chat that dispatched it; null is [sessionId].
          */
         val changesSessionId: String? = null,
+        /** Messages the user sends while this turn runs; see [TurnInbox]. Null for a subagent. */
+        val inbox: TurnInbox? = null,
     ) {
         /** Whose permissions a tool call runs under: the live selection, or the turn's agent. */
         fun currentAgent(): AgentDefinition = liveAgent?.invoke() ?: agent
@@ -174,20 +176,7 @@ class AgentLoop(
 
         try {
             if (userText != null) {
-                val user = store.append(
-                    Message(
-                        id = ConversationStore.newId("m"),
-                        sessionId = config.sessionId,
-                        role = Role.USER,
-                        content = buildList {
-                            // An image may be sent with no words: then there is
-                            // no text block, rather than an empty one that some
-                            // providers reject.
-                            if (userText.isNotBlank() || attachments.isEmpty()) add(Block.Text(userText))
-                            addAll(attachments)
-                        },
-                    ),
-                )
+                val user = appendUserMessage(config, ConversationStore.newId("m"), userText, attachments)
                 emit(AgentEvent.UserMessage(user))
 
                 // The first user message names the session. Done here rather
@@ -200,6 +189,13 @@ class AgentLoop(
 
             while (iterations < config.maxIterations) {
                 iterations++
+
+                // What the user sent since the last request, here, at a step
+                // boundary: after the previous round's results are stored,
+                // before the request that should read it.
+                config.inbox?.drain()?.forEach { pending ->
+                    emit(AgentEvent.UserMessage(appendUserMessage(config, pending.id, pending.text, pending.images)))
+                }
 
                 // Recall only on the first iteration. It is keyed off what the
                 // user just asked, so re-running it for each round of tool
@@ -257,6 +253,9 @@ class AgentLoop(
                 }
 
                 if (outcome.toolUses.isEmpty()) {
+                    // Sent while this reply streamed: answered in this turn,
+                    // by the next round, which takes it from the inbox first.
+                    if (config.inbox?.isEmpty() == false && iterations < config.maxIterations) continue
                     stopReason = AgentEvent.StopReason.COMPLETED
                     break
                 }
@@ -276,6 +275,26 @@ class AgentLoop(
 
         emit(AgentEvent.TurnFinished(iterations, stopReason))
     }
+
+    /** Store what the user said, under [id]: the turn's own message, or one sent while it ran. */
+    private suspend fun appendUserMessage(
+        config: TurnConfig,
+        id: String,
+        text: String,
+        images: List<Block.Image>,
+    ): Message = store.append(
+        Message(
+            id = id,
+            sessionId = config.sessionId,
+            role = Role.USER,
+            content = buildList {
+                // An image may be sent with no words: then there is no text
+                // block, rather than an empty one that some providers reject.
+                if (text.isNotBlank() || images.isEmpty()) add(Block.Text(text))
+                addAll(images)
+            },
+        ),
+    )
 
     private suspend fun FlowCollector<AgentEvent>.runCompaction(
         config: TurnConfig,

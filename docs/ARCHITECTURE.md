@@ -407,6 +407,13 @@ append results <- execute tools <- tool calls?
   says to ask for one.
 * **Tool results are their own message.** Both protocols require the assistant
   message that made the calls, followed by the results.
+* **A message sent while the turn runs waits for the next step.** It goes into
+  `TurnInbox`, and the loop stores it as a user message after the round's tool
+  results and before the next request, so it never lands between a call and
+  its result. A reply that would end the turn gives way to one more round when
+  something is waiting. Nothing running is stopped for it. What the turn never
+  took (it was stopped, it failed, or the message came after its last look)
+  comes back: to the composer, or, after a normal end, as the next turn.
 * **Parallel only for read-only tools**, and only for consecutive ones, so
   ordering between a read and a later write is preserved. Two concurrent edits
   to the same file interleave in ways that are impossible to review. Whether

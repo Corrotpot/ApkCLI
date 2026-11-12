@@ -70,6 +70,7 @@ import dev.apkcli.ui.chat.components.CommandsPlaque
 import dev.apkcli.ui.chat.components.CompactionSeam
 import dev.apkcli.ui.chat.components.CompactionStatus
 import dev.apkcli.ui.chat.components.ComposerBox
+import dev.apkcli.ui.chat.components.QueuedPlaque
 import dev.apkcli.ui.chat.components.EmptyChat
 import dev.apkcli.ui.chat.components.ErrorCard
 import dev.apkcli.ui.chat.components.FindNav
@@ -260,11 +261,13 @@ fun ChatScreen(
         if (viewModel.followBottom && itemCount > 0) listState.followToBottom(currentItemCount)
     }
 
-    // A message that could not be sent, or one taken back by a checkpoint,
-    // comes back to the composer, unless something new was typed meanwhile.
+    // A message that could not be sent, one taken back by a checkpoint, or a
+    // queued one taken back, comes back to the composer.
     LaunchedEffect(state.returnedDraft) {
         state.returnedDraft?.let { returned ->
-            if (draft.isBlank()) draft = returned
+            // Ahead of what was typed meanwhile, not instead of it: dropping
+            // it lost a queued message taken back while the user wrote more.
+            draft = if (draft.isBlank()) returned else "$returned\n\n$draft"
             viewModel.consumeReturnedDraft()
         }
     }
@@ -448,6 +451,7 @@ fun ChatScreen(
             val model = settings.activeModel
             val reasoning = settings.activeEndpoint?.let { endpoint -> model?.let { settings.reasoningEffortFor(endpoint.id, it) } }
             val reasoningShown = model != null && (model.reasoningEfforts.isNotEmpty() || model.reasoning != ReasoningSupport.NONE)
+            QueuedPlaque(state.queued, viewModel::withdrawQueued)
             ComposerBox(
                 value = draft,
                 onValueChange = { draft = it },
@@ -458,6 +462,7 @@ fun ChatScreen(
                 onStop = viewModel::stop,
                 busy = state.busy,
                 enabled = state.canSend,
+                canQueue = state.turnRunning,
                 accounting = state.context,
                 modelLabel = when {
                     model != null -> model.id.substringAfterLast('/')
