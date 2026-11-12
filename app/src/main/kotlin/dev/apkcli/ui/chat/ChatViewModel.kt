@@ -1822,6 +1822,12 @@ class ChatViewModel(
         }
     }
 
+    /** The star in the model sheet, for a model on the active endpoint. */
+    fun toggleFavoriteModel(modelId: String) {
+        val endpointId = _state.value.settings.activeEndpoint?.id ?: return
+        viewModelScope.launch { runtime.settingsRepository.toggleFavoriteModel(endpointId, modelId) }
+    }
+
     /** Pick one of the active model's published reasoning levels; null goes back to the model's default. */
     fun setReasoningEffort(level: String?) {
         val settings = _state.value.settings

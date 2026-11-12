@@ -310,6 +310,11 @@ class SettingsViewModel(
         }
     }
 
+    /** The star in the model sheet. */
+    fun toggleFavoriteModel(endpointId: String, modelId: String) {
+        viewModelScope.launch { runtime.settingsRepository.toggleFavoriteModel(endpointId, modelId) }
+    }
+
     /** One of the active model's published levels; null goes back to the model's default. */
     fun setReasoningEffort(level: String?) {
         val settings = _state.value.settings

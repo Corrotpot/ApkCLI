@@ -131,6 +131,24 @@ class SettingsRepository(
         settings.copy(
             activeEndpointId = endpointId,
             activeModelId = modelId ?: endpoint?.defaultModelId ?: endpoint?.models?.firstOrNull()?.id,
+            // A model picked by hand is a recent one; a connection's default,
+            // taken by switching connections, is not.
+            recentModels = modelId?.let { picked ->
+                val key = ReasoningLevels.key(endpointId, picked)
+                (listOf(key) + settings.recentModels.filter { it != key }).take(AppSettings.RECENT_MODELS)
+            } ?: settings.recentModels,
+        )
+    }
+
+    /** Star [modelId] on [endpointId] in the model sheet, or take the star away. */
+    suspend fun toggleFavoriteModel(endpointId: String, modelId: String) = update { settings ->
+        val key = ReasoningLevels.key(endpointId, modelId)
+        settings.copy(
+            favoriteModels = if (key in settings.favoriteModels) {
+                settings.favoriteModels - key
+            } else {
+                settings.favoriteModels + key
+            },
         )
     }
 

@@ -510,6 +510,9 @@ fun ChatScreen(
                 viewModel.selectModel(id)
                 sheet = null
             },
+            favorites = settings.favoriteModels,
+            recent = settings.recentModels,
+            onToggleFavorite = viewModel::toggleFavoriteModel,
             onSelectEndpoint = { id ->
                 // A connection with no key would only fail the next message.
                 val other = settings.endpoints.firstOrNull { it.id == id }

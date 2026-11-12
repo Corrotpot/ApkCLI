@@ -533,6 +533,13 @@ data class AppSettings(
      * means the model's own default.
      */
     val reasoningEfforts: Map<String, String> = emptyMap(),
+    /** Models starred in the model sheet, keyed by [ReasoningLevels.key]; it lists them first. */
+    val favoriteModels: Set<String> = emptySet(),
+    /**
+     * Models picked by hand, the latest first, keyed by [ReasoningLevels.key],
+     * at most [RECENT_MODELS]; the model sheet lists them after the starred.
+     */
+    val recentModels: List<String> = emptyList(),
     /** Show reasoning in the transcript. Off hides it but still accounts for it. */
     val showThinking: Boolean = true,
 
@@ -565,6 +572,9 @@ data class AppSettings(
          * ignored on read).
          */
         const val CURRENT_SCHEMA_VERSION = 4
+
+        /** How many hand-picked models [recentModels] remembers, over every connection. */
+        const val RECENT_MODELS = 10
     }
 
     val activeEndpoint: Endpoint?

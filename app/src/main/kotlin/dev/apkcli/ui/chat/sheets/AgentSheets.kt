@@ -3,6 +3,7 @@ package dev.apkcli.ui.chat.sheets
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +42,8 @@ import dev.apkcli.ui.components.ListRow
 import dev.apkcli.ui.components.Note
 import dev.apkcli.ui.components.RadioRow
 import dev.apkcli.ui.components.SearchField
+import dev.apkcli.ui.components.IconBtn
+import dev.apkcli.ui.components.IconBtnSize
 import dev.apkcli.ui.components.Section
 import dev.apkcli.ui.components.Sheet
 import dev.apkcli.ui.components.SheetActions
@@ -125,6 +128,11 @@ fun ModelSheet(
     onSelectEndpoint: (String) -> Unit,
     onRefresh: () -> Unit,
     onDismiss: () -> Unit,
+    /** Starred models, keyed by ReasoningLevels.key; listed first. */
+    favorites: Set<String> = emptySet(),
+    /** Models picked by hand, the latest first; listed after the starred. */
+    recent: List<String> = emptyList(),
+    onToggleFavorite: ((String) -> Unit)? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val models = endpoint?.models.orEmpty()
@@ -145,11 +153,16 @@ fun ModelSheet(
             )
         }
         SheetBody {
-            val shown = remember(models, query) {
+            val groups = remember(models, query, favorites, recent, endpoint?.id) {
                 val q = query.trim()
-                models.filter { q.isEmpty() || it.id.contains(q, ignoreCase = true) || it.displayName.contains(q, ignoreCase = true) }
+                groupModels(
+                    models.filter { q.isEmpty() || it.id.contains(q, ignoreCase = true) || it.displayName.contains(q, ignoreCase = true) },
+                    endpoint?.id,
+                    favorites,
+                    recent,
+                )
             }
-            if (shown.isEmpty()) {
+            if (groups.isEmpty()) {
                 EmptyText(
                     when {
                         models.isNotEmpty() -> stringResource(R.string.projects_nothing_found, query.trim())
@@ -158,15 +171,39 @@ fun ModelSheet(
                     },
                 )
             } else {
-                Card(Modifier.padding(top = 16.dp)) {
-                    shown.forEachIndexed { index, model ->
-                        if (index > 0) CardDivider(inset = 48.dp)
-                        RadioRow(
-                            title = model.id.substringAfterLast('/'),
-                            subtitle = modelLine(model, endpoint),
-                            selected = model.id == active?.id,
-                            onClick = { onSelect(model.id) },
-                        )
+                // Headings only when there is more than one group to tell apart.
+                val headed = groups.starred.isNotEmpty() || groups.recent.isNotEmpty()
+                listOf(
+                    R.string.model_sheet_starred to groups.starred,
+                    R.string.model_sheet_recent to groups.recent,
+                    R.string.model_sheet_all to groups.rest,
+                ).filter { (_, list) -> list.isNotEmpty() }.forEachIndexed { groupIndex, (heading, list) ->
+                    if (headed) Section(stringResource(heading)) else if (groupIndex == 0) Spacer(Modifier.height(16.dp))
+                    Card {
+                        list.forEachIndexed { index, model ->
+                            if (index > 0) CardDivider(inset = 48.dp)
+                            val key = endpoint?.let { ReasoningLevels.key(it.id, model.id) }
+                            val starred = key != null && key in favorites
+                            RadioRow(
+                                title = model.id.substringAfterLast('/'),
+                                subtitle = modelLine(model, endpoint),
+                                selected = model.id == active?.id,
+                                onClick = { onSelect(model.id) },
+                                trailing = onToggleFavorite?.let { toggle ->
+                                    {
+                                        IconBtn(
+                                            if (starred) Codicons.StarFull else Codicons.StarEmpty,
+                                            contentDescription = stringResource(
+                                                if (starred) R.string.a11y_unstar_model else R.string.a11y_star_model,
+                                            ),
+                                            onClick = { toggle(model.id) },
+                                            size = IconBtnSize.Small,
+                                            tint = if (starred) Design.Colors.Warning else Design.Colors.TextTertiary,
+                                        )
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -212,6 +249,34 @@ fun ModelSheet(
         }
     }
 }
+
+/** The model sheet's list in its three groups; see [groupModels]. */
+internal data class ModelGroups(val starred: List<ModelSpec>, val recent: List<ModelSpec>, val rest: List<ModelSpec>) {
+    fun isEmpty() = starred.isEmpty() && recent.isEmpty() && rest.isEmpty()
+}
+
+/**
+ * [models] as the sheet lists them: the starred in the endpoint's order, then
+ * up to [RECENT_SHOWN] of those picked lately, the latest first, then the
+ * rest in the endpoint's order. Each model once. Keys are ReasoningLevels.key
+ * of [endpointId]; with none, everything is the rest.
+ */
+internal fun groupModels(
+    models: List<ModelSpec>,
+    endpointId: String?,
+    favorites: Set<String>,
+    recent: List<String>,
+): ModelGroups {
+    if (endpointId == null) return ModelGroups(emptyList(), emptyList(), models)
+    fun key(model: ModelSpec) = ReasoningLevels.key(endpointId, model.id)
+    val starred = models.filter { key(it) in favorites }
+    val byKey = models.associateBy(::key)
+    val lately = recent.mapNotNull { byKey[it] }.filter { key(it) !in favorites }.take(RECENT_SHOWN)
+    val taken = (starred + lately).map { it.id }.toSet()
+    return ModelGroups(starred, lately, models.filter { it.id !in taken })
+}
+
+private const val RECENT_SHOWN = 5
 
 /** "context 200k · answer 32k · images": the spec in one line. */
 @Composable

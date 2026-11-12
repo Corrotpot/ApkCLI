@@ -791,4 +791,10 @@
     <string name="queued_images">Изображения</string>
     <string name="queued_withdraw">Вернуть в поле ввода</string>
     <string name="a11y_queue_message">Отправить на следующем шаге агента</string>
+    <!-- Группы в шторке моделей и звёздочка, которая поднимает модель в первую -->
+    <string name="model_sheet_starred">Избранное</string>
+    <string name="model_sheet_recent">Недавние</string>
+    <string name="model_sheet_all">Все модели</string>
+    <string name="a11y_star_model">Добавить в избранное</string>
+    <string name="a11y_unstar_model">Убрать из избранного</string>
 </resources>

@@ -845,6 +845,8 @@ fun RadioRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     enabled: Boolean = true,
+    /** At the row's end, with its own tap: a star, say. */
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -863,6 +865,7 @@ fun RadioRow(
                 Text(subtitle, style = Design.Type.BodySmall, color = Design.Colors.TextSecondary)
             }
         }
+        trailing?.invoke()
     }
 }
 

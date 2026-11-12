@@ -779,4 +779,10 @@
     <string name="queued_images">Images</string>
     <string name="queued_withdraw">Take back to the input box</string>
     <string name="a11y_queue_message">Send at the agent\'s next step</string>
+    <!-- The model sheet's groups, and the star that puts a model in the first -->
+    <string name="model_sheet_starred">Starred</string>
+    <string name="model_sheet_recent">Recent</string>
+    <string name="model_sheet_all">All models</string>
+    <string name="a11y_star_model">Star this model</string>
+    <string name="a11y_unstar_model">Remove the star</string>
 </resources>

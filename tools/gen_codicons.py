@@ -8,7 +8,12 @@ Writes app/src/main/kotlin/dev/apkcli/ui/icons/Codicons.kt.
 Source, pinned: the npm package @vscode/codicons 0.0.46-24,
 https://registry.npmjs.org/@vscode/codicons/-/codicons-0.0.46-24.tgz, dist
 integrity sha512-KIDWUYxG6eh+DHRg+3G4bS487T+g1ZkLfB4HylOBbCcHsvLdfLMRM/m92DS1Ljhi8nglLr9ucwwWhHTEAC+DpA==;
-unpacked, the icons are in package/src/icons. The design prototype
+unpacked, the icons are in package/src/icons. Except `close`: the shipped
+Codicons.kt has the redrawn `close` of the repository's main branch
+(github.com/microsoft/vscode-codicons, src/icons), which this package
+predates. Generated from the package alone, Close changes and nothing else;
+regenerate from main, or put main's close.svg in the package's folder first.
+The design prototype
 (tools/gen_design.py) reads its icons from the generated Codicons.kt, so it
 draws exactly these paths.
 
@@ -143,6 +148,8 @@ ICONS: dict[str, str] = {
     "Sparkle": "sparkle",
     "SplitHorizontal": "split-horizontal",
     "SplitVertical": "split-vertical",
+    "StarEmpty": "star-empty",
+    "StarFull": "star-full",
     "StopCircle": "stop-circle",
     "Sync": "sync",
     "Terminal": "terminal",

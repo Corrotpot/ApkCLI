@@ -339,6 +339,9 @@ fun SettingsScreen(
                     active?.let { viewModel.selectModel(it.id, id) }
                     sheet = null
                 },
+                favorites = settings.favoriteModels,
+                recent = settings.recentModels,
+                onToggleFavorite = { id -> active?.let { viewModel.toggleFavoriteModel(it.id, id) } },
                 onSelectEndpoint = { id ->
                     val other = viewModel.endpoint(id)
                     if (other != null && !state.usable(other)) {
