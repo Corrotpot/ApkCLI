@@ -44,8 +44,9 @@ import java.util.UUID
  *    carries one is refused as malformed. The system prompt is a user turn
  *    of its own at the head of the history, answered "I will follow these
  *    instructions.", as Kiro IDE sends it.
- *  * Reasoning is not sent back: `reasoningContent` in the history is
- *    refused as malformed.
+ *  * Reasoning cannot go back as `reasoningContent`: the history refuses it
+ *    as malformed. A round that made tool calls carries its reasoning back
+ *    as text instead, between `<thinking>` tags ([turns]).
  */
 object KiroWire {
 
@@ -235,6 +236,14 @@ object KiroWire {
                     val calls = message.toolUses
                     if (message.text.isBlank() && calls.isEmpty()) continue
                     val turn = turn(user = false)
+                    // A round that made tool calls carries its reasoning back:
+                    // without it the model saw its calls and their results but
+                    // not why it made them, and on every round of a chain
+                    // started its thought over ("the user is asking…" again).
+                    // The token budget counts this text already
+                    // (Message.promptText). A final answer's reasoning stays
+                    // out: nothing after it needs the thread.
+                    if (calls.isNotEmpty()) replayedReasoning(message)?.let(turn::append)
                     turn.append(message.text)
                     calls.forEach { use ->
                         val arguments = use.argumentsJson.ifBlank { "{}" }
@@ -301,6 +310,32 @@ object KiroWire {
             turn.calls += kept
         }
         return turns
+    }
+
+    /**
+     * A round's reasoning as its assistant turn carries it back: between
+     * `<thinking>` tags, so the model reads it as its own private reasoning
+     * and not as something the user was told, and so a reply that copies the
+     * form still has it split out of the answer (ThinkTagSplitter). A long
+     * one keeps its start and its end, where the thought was going. The cut
+     * falls in the same place on every request, so a cached prefix holds.
+     */
+    private fun replayedReasoning(message: Message): String? {
+        val text = message.thinking.filterNot { it.redacted }.joinToString("\n\n") { it.text }.trim()
+        if (text.isEmpty()) return null
+        val shown = if (text.length <= REASONING_CAP) {
+            text
+        } else {
+            // Not between the two halves of a surrogate pair.
+            var head = REASONING_HEAD
+            if (Character.isHighSurrogate(text[head - 1])) head--
+            var tail = text.length - (REASONING_CAP - REASONING_HEAD)
+            if (Character.isLowSurrogate(text[tail])) tail++
+            text.substring(0, head) +
+                "\n[… ${tail - head} characters of this reasoning not shown …]\n" +
+                text.substring(tail)
+        }
+        return "<thinking>\n$shown\n</thinking>"
     }
 
     private fun callText(call: Call) = "[Tool call: ${call.name}(${clipped(call.rawArguments)})]"
@@ -896,4 +931,8 @@ object KiroWire {
     private const val ID_MAX = 64
     private const val DESCRIPTION_MAX = 10_000
     private const val TEXT_CAP = 4_000
+
+    /** Past this a replayed reasoning keeps its first [REASONING_HEAD] characters and its end; see [replayedReasoning]. */
+    private const val REASONING_CAP = 4_000
+    private const val REASONING_HEAD = 1_000
 }

@@ -141,6 +141,79 @@ class KiroWireTest {
     }
 
     @Test
+    fun `a round that called a tool carries its reasoning back in thinking tags, a final answer does not`() {
+        val body = KiroWire.body(
+            request(
+                listOf(
+                    message(Role.USER, Block.Text("Read it")),
+                    message(
+                        Role.ASSISTANT,
+                        Block.Thinking("The user wants a.py; I will read it."),
+                        Block.Text("Reading."),
+                        Block.ToolUse("t1", "fs_read", """{"path":"a.py"}"""),
+                    ),
+                    message(Role.TOOL, Block.ToolResult("t1", "fs_read", "print(1)")),
+                    message(
+                        Role.ASSISTANT,
+                        Block.Thinking("The file prints 1; I can answer now."),
+                        Block.Text("It prints 1."),
+                    ),
+                    message(Role.USER, Block.Text("Thanks")),
+                ),
+            ),
+            profileArn = null,
+            conversationId = "c1",
+        ).json
+
+        val assistantTurns = body.history()
+            .mapNotNull { it["assistantResponseMessage"]?.jsonObject }
+        val round = assistantTurns.first { it["toolUses"] != null }
+        val roundText = round.text("content")
+        assertTrue(
+            "marked as reasoning, not as words the user saw",
+            roundText.startsWith("<thinking>\nThe user wants a.py; I will read it.\n</thinking>"),
+        )
+        assertTrue("the words are kept", roundText.contains("Reading."))
+        assertTrue(
+            "reasoning comes before the words",
+            roundText.indexOf("I will read it") < roundText.indexOf("Reading."),
+        )
+
+        val answers = assistantTurns.map { it.text("content") }
+        assertTrue("the final answer is sent", answers.any { it.contains("It prints 1.") })
+        assertFalse(
+            "a final answer's reasoning is not replayed",
+            answers.any { it.contains("I can answer now") },
+        )
+    }
+
+    @Test
+    fun `a long reasoning goes back by its start and its end`() {
+        val long = "a".repeat(2_000) + "MIDDLE" + "b".repeat(5_000) + "THE END"
+        val body = KiroWire.body(
+            request(
+                listOf(
+                    message(Role.USER, Block.Text("Go")),
+                    message(Role.ASSISTANT, Block.Thinking(long), Block.ToolUse("t1", "fs_read", """{"path":"a.py"}""")),
+                    message(Role.TOOL, Block.ToolResult("t1", "fs_read", "x")),
+                ),
+            ),
+            profileArn = null,
+            conversationId = "c1",
+        ).json
+
+        val text = body.history()
+            .mapNotNull { it["assistantResponseMessage"]?.jsonObject }
+            .first { it["toolUses"] != null }
+            .text("content")
+        assertTrue("the start is kept", text.startsWith("<thinking>\naaaa"))
+        assertTrue("the end, where the thought was going, is kept", text.endsWith("THE END\n</thinking>"))
+        assertFalse("the middle is cut", text.contains("MIDDLE"))
+        assertTrue("and the cut says so", text.contains("characters of this reasoning not shown"))
+        assertTrue(text.length < 4_200)
+    }
+
+    @Test
     fun `a failed tool says so in its text, with the status Kiro takes`() {
         val body = KiroWire.body(
             request(

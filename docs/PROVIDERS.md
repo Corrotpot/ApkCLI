@@ -327,8 +327,11 @@ How the app does it, following the manager:
   `userInputMessageContext.{tools, toolResults}`; tools go on the current
   message only. There is no top-level system prompt: it is the first turn of
   the history, answered "I will follow these instructions.", as Kiro IDE sends
-  it. Reasoning is not sent back, since `reasoningContent` in the history is
-  refused as malformed. No turn is empty: a turn of tool calls alone says " ",
+  it. `reasoningContent` in the history is refused as malformed, so a turn
+  that made tool calls carries its reasoning back as text, between
+  `<thinking>` tags, 4 000 characters at most; without it the model started
+  its thought over on every round of a tool chain. A final answer's reasoning
+  is not sent. No turn is empty: a turn of tool calls alone says " ",
   a reply with nothing in it "I understand.", an empty question "Continue".
   Tool results are always `status: success`, a failure saying so in its text,
   as the manager sends them. The app asks for at most 32 000 tokens of answer.

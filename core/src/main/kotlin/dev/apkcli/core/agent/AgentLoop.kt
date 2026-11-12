@@ -687,6 +687,10 @@ class AgentLoop(
                         content = snapshotBlocks(
                             text, thinking, thinkingSignature, thinkingRedacted,
                             reasoningTokens, toolOrder, toolNames, toolArgs,
+                            // Crash insurance for the visible text, not for a
+                            // half-written call: keep args short here so a large
+                            // file streaming in is not re-copied every tick.
+                            toolArgsCap = STREAMING_ARGS_CAP,
                         ),
                         recountTokens = false,
                         // Indexed once, by the final save below.
@@ -784,6 +788,17 @@ class AgentLoop(
         toolOrder: List<String>,
         toolNames: Map<String, String>,
         toolArgs: Map<String, StringBuilder>,
+        /**
+         * Longest tool-argument string to copy into the snapshot. The periodic
+         * save passes a small cap: re-serialising a call's whole arguments
+         * every [PERSIST_INTERVAL_MS] as the model streams a large file in is
+         * quadratic in the file's size — the cost the streaming itself is meant
+         * not to have. The arguments are not needed until the call is complete;
+         * the final save (and the stopped save) copy them whole, default
+         * [Int.MAX_VALUE]. A crash mid-write loses only a call that could not
+         * have run.
+         */
+        toolArgsCap: Int = Int.MAX_VALUE,
     ): List<Block> = buildList {
         if (thinking.isNotEmpty() || (redacted && signature != null)) {
             add(
@@ -797,11 +812,18 @@ class AgentLoop(
         }
         if (text.isNotEmpty()) add(Block.Text(text.toString()))
         for (callId in toolOrder) {
+            val args = toolArgs[callId]
             add(
                 Block.ToolUse(
                     callId = callId,
                     name = toolNames[callId] ?: "unknown",
-                    argumentsJson = toolArgs[callId]?.toString().orEmpty(),
+                    argumentsJson = when {
+                        args == null -> ""
+                        args.length <= toolArgsCap -> args.toString()
+                        // Not between the two halves of a surrogate pair.
+                        Character.isHighSurrogate(args[toolArgsCap - 1]) -> args.substring(0, toolArgsCap - 1)
+                        else -> args.substring(0, toolArgsCap)
+                    },
                 ),
             )
         }
@@ -1152,6 +1174,13 @@ class AgentLoop(
 
         /** How often a streaming message is written to SQLite. */
         private const val PERSIST_INTERVAL_MS = 400L
+
+        /**
+         * How much of a call's arguments a periodic streaming save keeps. Only
+         * crash insurance; the final save keeps them whole. Enough for a path
+         * or a command to survive a crash, not a whole file being written in.
+         */
+        private const val STREAMING_ARGS_CAP = 512
 
         /** How often a call being written reports its progress, and how much of it goes with the report. */
         private const val PROGRESS_INTERVAL_MS = 250L

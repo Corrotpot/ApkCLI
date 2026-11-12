@@ -457,7 +457,8 @@ class ConversationStore(
                 }.getOrElse { jsonOf() },
                 "status" to record.status.wire(),
             ),
-            TaskClass.BACKGROUND,
+            // Every tool call waits on this before it runs; see append.
+            TaskClass.INTERACTIVE,
         )
     }
 
@@ -481,7 +482,8 @@ class ConversationStore(
                 "blobId" to blobId,
                 "tokens" to tokens,
             ),
-            TaskClass.BACKGROUND,
+            // The call's result waits on this; see recordToolCall.
+            TaskClass.INTERACTIVE,
         )
     }
 
@@ -528,7 +530,12 @@ class ConversationStore(
                 "label" to label,
                 "sessionId" to sessionId,
             ),
-            TaskClass.BACKGROUND,
+            // Every caller is a tool call that cannot give its result until
+            // this is stored: a file's snapshot, a spilled output, a long
+            // page. The background pool's threads are the ones Android
+            // throttles; beside a build, work there waited for seconds
+            // (FsWriteTool). Same reason as append.
+            TaskClass.INTERACTIVE,
         )
         return id
     }
@@ -663,7 +670,8 @@ class ConversationStore(
                 "afterBlob" to afterBlobId,
                 "toolCallId" to toolCallId,
             ),
-            TaskClass.BACKGROUND,
+            // fs_write and the edit tools wait on this; see putBlob.
+            TaskClass.INTERACTIVE,
         )
         return id
     }

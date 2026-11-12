@@ -151,9 +151,9 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
             val delta = choice.obj("delta") ?: choice.obj("message")
             if (delta != null) {
                 // Reasoning, under whichever key this server uses.
-                (delta.str("reasoning_content") ?: delta.str("reasoning"))
+                val reasoningText = (delta.str("reasoning_content") ?: delta.str("reasoning"))
                     ?.takeIf { it.isNotEmpty() }
-                    ?.let { emit(StreamEvent.ThinkingDelta(it)) }
+                reasoningText?.let { emit(StreamEvent.ThinkingDelta(it)) }
 
                 // OpenRouter wraps upstream reasoning in `reasoning_details`,
                 // which is where Anthropic's signature ends up when a Claude
@@ -172,9 +172,15 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
                             detail.str("signature")?.takeIf { it.isNotBlank() }
                                 ?.let { emit(StreamEvent.ThinkingSignature(it)) }
                             // Some providers deliver the reasoning body only
-                            // inside the details array.
-                            detail.str("text")?.takeIf { it.isNotEmpty() }
-                                ?.let { emit(StreamEvent.ThinkingDelta(it)) }
+                            // inside the details array; take it from there only
+                            // then. OpenRouter fills both with the same text, and
+                            // taking both drew every piece of reasoning twice and
+                            // replayed the doubled text against a signature made
+                            // for one copy.
+                            if (reasoningText == null) {
+                                detail.str("text")?.takeIf { it.isNotEmpty() }
+                                    ?.let { emit(StreamEvent.ThinkingDelta(it)) }
+                            }
                         }
                     }
                 }
