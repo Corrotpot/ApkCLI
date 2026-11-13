@@ -28,6 +28,21 @@ internal object ShellHints {
     /** `nc` or `netcat` as a command word, not inside another name (`rsync`, `ncdu`). */
     private val NETCAT = Regex("""(?:^|[\s|;&(`])(?:toybox\s+)?(?:nc|netcat)\s""")
 
+    private const val SIGKILL = 9
+
+    /**
+     * After a SIGKILL nobody here sent. On Android that is the system: the
+     * low-memory killer, or from Android 12 the limit on child processes,
+     * 32 across all apps, and the kill of a child that uses much CPU while
+     * its app is in the background. Retrying the same way meets the same end.
+     */
+    internal const val KILLED = "Killed by SIGKILL, which this app did not send: Android killed it. Either " +
+        "memory ran out, or (Android 12 and later) the system's limit on child processes was " +
+        "reached — 32 across all apps. Run fewer jobs at once (make -j2, one build at a time, " +
+        "stop finished background jobs) and try again. If it keeps happening, tell the user: " +
+        "on Android 14 and later Developer options has \"Disable child process restrictions\"; on " +
+        "12L and 13 it is `adb shell settings put global settings_enable_monitor_phantom_procs false`."
+
     /**
      * The Termux package for commands models commonly reach for. Every
      * package name was checked against the termux-main index (October 2026);
@@ -139,9 +154,22 @@ internal object ShellHints {
 
     /**
      * @param canInstall whether pkg_install exists in this build.
+     * @param signal what killed it, when a signal did.
+     * @param timedOut the runner killed it at its deadline: no one else did.
      * @return the hint, or null when the result needs none.
      */
-    fun afterRun(command: String, exitCode: Int?, stdout: String, stderr: String, canInstall: Boolean): String? {
+    fun afterRun(
+        command: String,
+        exitCode: Int?,
+        stdout: String,
+        stderr: String,
+        canInstall: Boolean,
+        signal: Int? = null,
+        timedOut: Boolean = false,
+    ): String? {
+        // SIGKILL that the runner did not send: through a shell it is exit
+        // 137, 128 plus the signal.
+        if (!timedOut && (signal == SIGKILL || exitCode == 128 + SIGKILL)) return KILLED
         if (exitCode != null && exitCode != 0 && canInstall && PIP_INSTALL.containsMatchIn(command)) {
             pipBuildHint("$stdout\n$stderr")?.let { return it }
         }

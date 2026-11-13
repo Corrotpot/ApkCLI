@@ -76,7 +76,12 @@ fun RootScreen(modifier: Modifier = Modifier) {
     val navigator = rememberNavigator(Destination.Home)
     val runtime = ServiceLocator.runtime(context)
 
-    val chatViewModel: ChatViewModel = viewModel(factory = ChatViewModel.factory(runtime, context))
+    // The process's, not the activity's: a turn goes on when the activity is
+    // gone, and the next one finds it (ApkCliApplication.processViewModels).
+    val chatViewModel: ChatViewModel = viewModel(
+        viewModelStoreOwner = ServiceLocator.processViewModels(context),
+        factory = ChatViewModel.factory(runtime, context),
+    )
     val workbenchViewModel: WorkbenchViewModel = viewModel(factory = WorkbenchViewModel.factory(context))
     val editorViewModel: EditorViewModel = viewModel(factory = EditorViewModel.factory(runtime.layout))
     val explorerViewModel: ExplorerViewModel = viewModel(factory = ExplorerViewModel.factory(runtime.layout))

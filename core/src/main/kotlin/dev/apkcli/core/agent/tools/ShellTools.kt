@@ -118,6 +118,8 @@ class ShExecTool : Tool {
             // On the terminal stderr is part of the screen.
             stderr = result.stderr.ifBlank { result.stdout },
             canInstall = ctx.packages != null,
+            signal = result.signal,
+            timedOut = result.timedOut,
         )
         val text = result.forModel() + (hint?.let { "\n\n$it" } ?: "")
         return ToolResult(

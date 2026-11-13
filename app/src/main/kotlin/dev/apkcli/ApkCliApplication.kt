@@ -3,6 +3,8 @@ package dev.apkcli
 import android.app.Application
 import android.os.StrictMode
 import android.util.Log
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import dev.apkcli.core.AgentRuntime
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +40,17 @@ class ApkCliApplication : Application() {
 
     lateinit var runtime: AgentRuntime
         private set
+
+    /**
+     * ViewModels that live as long as the process rather than the activity.
+     * The chat's is one: its turn goes on when the activity is gone — the app
+     * swiped out of the recents while the agent works, or closed with Back
+     * before Android 12 — and a new activity finds it running. Held by the
+     * activity, the turn was stopped in onCleared the moment that happened.
+     */
+    val processViewModels: ViewModelStoreOwner = object : ViewModelStoreOwner {
+        override val viewModelStore = ViewModelStore()
+    }
 
     override fun onCreate() {
         super.onCreate()

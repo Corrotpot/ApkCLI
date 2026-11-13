@@ -33,6 +33,7 @@ import dev.apkcli.core.model.ToolCallStatus
 import dev.apkcli.core.projects.ProjectImport
 import dev.apkcli.core.runtime.TerminalBuffer
 import dev.apkcli.core.service.AgentService
+import dev.apkcli.core.service.BatteryExemption
 import dev.apkcli.core.store.ChangeLedger
 import dev.apkcli.core.store.ConversationStore
 import dev.apkcli.ui.EditorBus
@@ -820,6 +821,18 @@ class ChatViewModel(
         return if (returned) null else words
     }
 
+    /**
+     * The first turn asks Android, once, to let the app run in the background
+     * without its battery optimisation ([BatteryExemption]): the system's own
+     * dialog, which the user answers. Asked again from the settings, never
+     * here a second time.
+     */
+    private fun askBatteryExemptionOnce() {
+        if (uiPrefs.getBoolean(KEY_ASKED_BATTERY, false)) return
+        uiPrefs.edit().putBoolean(KEY_ASKED_BATTERY, true).apply()
+        if (!BatteryExemption.granted(appContext)) BatteryExemption.request(appContext)
+    }
+
     fun send(text: String) {
         val trimmed = text.trim()
         // A command runs instead of being sent; one that cannot run now
@@ -861,6 +874,7 @@ class ChatViewModel(
             )
         }
         AgentService.start(appContext, "Thinking…")
+        askBatteryExemptionOnce()
 
         stoppedByUser = false
         turnJob = viewModelScope.launch {
@@ -2370,7 +2384,10 @@ class ChatViewModel(
     }
 
     override fun onCleared() {
-        // The screen is gone with the turn: no "the agent replied" for it.
+        // Not when the activity goes: this lives in the process's store
+        // (ApkCliApplication.processViewModels), which nothing clears. Kept
+        // for a store that is: the turn goes with it, and no "the agent
+        // replied" for it.
         stoppedByUser = true
         turnJob?.cancel()
         super.onCleared()
@@ -2378,6 +2395,9 @@ class ChatViewModel(
 
     companion object {
         private const val TAG = "ChatViewModel"
+
+        /** [uiPrefs]: the first turn asked for the battery exemption. */
+        private const val KEY_ASKED_BATTERY = "asked_battery_exemption"
 
         /** How much of a reply the "the agent replied" alert shows. */
         private const val ALERT_TEXT_CHARS = 300

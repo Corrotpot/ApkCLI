@@ -37,6 +37,7 @@ import dev.apkcli.core.runtime.ShellRunner
 import dev.apkcli.core.runtime.TerminalSessions
 import dev.apkcli.core.runtime.TranscriptInput
 import dev.apkcli.core.sched.LoadGovernor
+import dev.apkcli.core.service.AgentService
 import dev.apkcli.core.store.BuiltInAgents
 import dev.apkcli.core.store.ChangeLedger
 import dev.apkcli.core.store.ConversationStore
@@ -108,7 +109,26 @@ class AgentRuntime(
      * purpose — see [TerminalSessions].
      */
     val terminals: TerminalSessions? by lazy {
-        ptyManager?.let { TerminalSessions(it, scope) }
+        ptyManager?.let { TerminalSessions(it, scope) }?.also(::keepRunningWhileWorking)
+    }
+
+    /**
+     * While something runs in a terminal, [AgentService] keeps the process
+     * going, as it does for a turn: a build or a dev server left running used
+     * to be frozen with the app the moment the user switched to another one.
+     */
+    private fun keepRunningWhileWorking(terminals: TerminalSessions) {
+        scope.launch {
+            terminals.working.collect { running ->
+                if (running.isEmpty()) {
+                    AgentService.release(context, AgentService.HOLD_TERMINALS)
+                } else {
+                    val label = running.singleOrNull()?.let { "Running in the terminal: $it" }
+                        ?: "Running in the terminals: ${running.joinToString(", ")}"
+                    AgentService.hold(context, AgentService.HOLD_TERMINALS, label)
+                }
+            }
+        }
     }
 
     /** Lines the user types into the agent's transcript; see [TranscriptInput]. */

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -16,32 +17,49 @@ import dev.apkcli.core.AgentRuntime
 import dev.apkcli.core.R
 import dev.apkcli.core.agent.AgentEvent
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
- * Keeps a turn alive while the app is not in the foreground.
+ * Keeps the process working while the app is not on screen: a turn, and what
+ * runs in the terminals.
  *
- * Without this, backgrounding the app during a turn means the process is
- * frozen (Android 12+ app standby) or killed, and the request that was already
- * paid for is lost halfway through. Reading documentation in a browser while
- * the agent works is a completely normal thing to do on a phone, so this is not
- * an edge case.
+ * Without it a backgrounded app is frozen (the cached apps freezer) or killed,
+ * with every command it started: the request already paid for is lost
+ * halfway, and a build or a dev server stops where it was. Watching a video
+ * while the agent works is an ordinary thing to do on a phone.
+ *
+ * While anything holds it ([hold]) it keeps three things: the foreground
+ * state, which keeps the process off the freezer and low on the killer's
+ * list, and keeps its network in Doze; a partial wake lock, renewed while
+ * held, so the CPU runs with the screen off; and through Android 13 a Wi-Fi
+ * lock, which keeps Wi-Fi out of power save with the screen off (from 14 the
+ * system turns that lock into one that works only on screen). The exemption
+ * from battery optimisation, which the app asks for ([BatteryExemption]),
+ * covers what a vendor's own battery manager adds.
  *
  * It is not a bound service with an API. The UI talks to [AgentRuntime]
- * directly — same process — and the service exists purely to hold the process
- * priority and a wake lock for the duration, plus to give the user a way to see
- * and stop a running turn from the notification shade.
+ * directly — same process — and the service exists to hold the process's
+ * priority and its locks, and to let the user see and stop a turn from the
+ * notification shade.
  */
 class AgentService : Service() {
 
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(serviceJob)
+    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.Default)
 
+    @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var renewal: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -52,19 +70,7 @@ class AgentService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> {
-                val label = intent.getStringExtra(EXTRA_LABEL) ?: "Working"
-                startForeground(NOTIFICATION_ID, buildNotification(label, indeterminate = true))
-                acquireWakeLock()
-            }
-
-            ACTION_UPDATE -> {
-                val label = intent.getStringExtra(EXTRA_LABEL) ?: "Working"
-                notificationManager()?.notify(
-                    NOTIFICATION_ID,
-                    buildNotification(label, indeterminate = true),
-                )
-            }
+            ACTION_SYNC -> sync(startId)
 
             ACTION_STOP_TURN -> {
                 // The notification's stop button. The actual cancellation is the
@@ -72,12 +78,8 @@ class AgentService : Service() {
                 // only flips the flag it observes.
                 _stopRequested.value = true
                 Log.i(TAG, "stop requested from the notification")
-            }
-
-            ACTION_FINISH -> {
-                releaseWakeLock()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                // Started by the button alone, with nothing held: not left running.
+                if (snapshot() == null) stopSelfResult(startId)
             }
         }
         // Not sticky: a turn that was interrupted by a process death must not be
@@ -87,32 +89,85 @@ class AgentService : Service() {
     }
 
     override fun onDestroy() {
-        releaseWakeLock()
+        releaseLocks()
         serviceScope.cancel()
         super.onDestroy()
     }
 
-    /* ----------------------------------------------------------- wake lock */
+    /**
+     * Match what holds the service now, whatever the intent that asked said:
+     * in the foreground with its locks while anything holds it, gone once
+     * nothing does. Changes arrive from several threads; reading the state
+     * here rather than carrying it in each intent is what keeps them from
+     * overtaking each other.
+     */
+    private fun sync(startId: Int) {
+        val now = snapshot()
+        // Into the foreground first, whatever the state: a start through
+        // startForegroundService that is not answered with it is a crash, and
+        // the hold that asked for it may be gone by the time it arrives.
+        val shown = runCatching {
+            startForeground(NOTIFICATION_ID, buildNotification(now?.label ?: IDLE_LABEL, stoppable = now?.turn == true))
+        }.onFailure { Log.w(TAG, "could not enter the foreground: ${it.message}") }.isSuccess
+        if (now == null) {
+            releaseLocks()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            // Only when no newer start is on its way: that one is a hold
+            // taken since, which a stop now would leave without the service.
+            stopSelfResult(startId)
+            return
+        }
+        if (shown) acquireLocks()
+    }
+
+    /* --------------------------------------------------------------- locks */
 
     /**
-     * Held only while a turn is in flight.
+     * The wake lock, and the Wi-Fi lock where it still works.
      *
-     * A reasoning model can spend minutes before its first token, and if the
-     * device suspends the network in that window the stream dies. The timeout is
-     * a backstop against a leak, not an expected path.
+     * The wake lock is leased for [WAKE_LOCK_LEASE_MS] and renewed every
+     * [WAKE_LOCK_RENEW_MS] while held, rather than taken once for a fixed
+     * time: it used to be 30 minutes, after which a long turn went on with
+     * the CPU free to sleep. The lease is the backstop against a leak: a
+     * process that stops renewing lets go of it by itself.
      */
-    private fun acquireWakeLock() {
-        if (wakeLock?.isHeld == true) return
-        val manager = getSystemService(PowerManager::class.java) ?: return
-        wakeLock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG).apply {
-            setReferenceCounted(false)
-            runCatching { acquire(WAKE_LOCK_TIMEOUT_MS) }
+    private fun acquireLocks() {
+        val lock = wakeLock ?: getSystemService(PowerManager::class.java)
+            ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG)
+            ?.apply { setReferenceCounted(false) }
+            ?.also { wakeLock = it }
+        // On a lock that is not reference-counted an acquire moves its
+        // timeout out rather than stacking a second hold.
+        lock?.let { runCatching { it.acquire(WAKE_LOCK_LEASE_MS) } }
+        if (renewal?.isActive != true) {
+            renewal = serviceScope.launch {
+                while (isActive) {
+                    delay(WAKE_LOCK_RENEW_MS)
+                    wakeLock?.let { runCatching { it.acquire(WAKE_LOCK_LEASE_MS) } }
+                }
+            }
+        }
+        if (wifiLock == null && Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            @Suppress("DEPRECATION")
+            val mode = WifiManager.WIFI_MODE_FULL_HIGH_PERF
+            wifiLock = runCatching {
+                applicationContext.getSystemService(WifiManager::class.java)
+                    ?.createWifiLock(mode, WIFI_LOCK_TAG)
+                    ?.apply {
+                        setReferenceCounted(false)
+                        acquire()
+                    }
+            }.onFailure { Log.w(TAG, "no Wi-Fi lock: ${it.message}") }.getOrNull()
         }
     }
 
-    private fun releaseWakeLock() {
+    private fun releaseLocks() {
+        renewal?.cancel()
+        renewal = null
         runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
         wakeLock = null
+        runCatching { if (wifiLock?.isHeld == true) wifiLock?.release() }
+        wifiLock = null
     }
 
     /* -------------------------------------------------------- notification */
@@ -129,13 +184,14 @@ class AgentService : Service() {
             // indicator and a stop button, not an alert.
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Shown while the agent is working so the turn is not interrupted."
+            description = "Shown while the agent or a terminal is working, so it is not interrupted."
             setShowBadge(false)
         }
         notificationManager()?.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(label: String, indeterminate: Boolean): Notification {
+    /** @param stoppable a turn holds the service: the notification can stop it. */
+    private fun buildNotification(label: String, stoppable: Boolean): Notification {
         val openApp = packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
             PendingIntent.getActivity(
                 this,
@@ -145,14 +201,7 @@ class AgentService : Service() {
             )
         }
 
-        val stop = PendingIntent.getService(
-            this,
-            1,
-            Intent(this, AgentService::class.java).setAction(ACTION_STOP_TURN),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ApkCLI")
             .setContentText(label)
             .setSmallIcon(R.drawable.ic_agent_notification)
@@ -160,30 +209,96 @@ class AgentService : Service() {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(openApp)
-            .addAction(0, "Stop", stop)
-            .setProgress(0, 0, indeterminate)
+            .setProgress(0, 0, true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        if (stoppable) {
+            val stop = PendingIntent.getService(
+                this,
+                1,
+                Intent(this, AgentService::class.java).setAction(ACTION_STOP_TURN),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            builder.addAction(0, "Stop", stop)
+        }
+        return builder.build()
     }
 
     companion object {
         private const val TAG = "AgentService"
         private const val CHANNEL_ID = "agent_activity"
         private const val NOTIFICATION_ID = 1001
-        private const val WAKE_LOCK_TAG = "apkcli:turn"
+        private const val WAKE_LOCK_TAG = "apkcli:work"
+        private const val WIFI_LOCK_TAG = "apkcli:work"
 
-        /** Backstop against a leaked lock; a turn should never run this long. */
-        private const val WAKE_LOCK_TIMEOUT_MS = 30 * 60 * 1000L
+        /** How long one acquire of the wake lock lasts, and how often it is renewed while held. */
+        private const val WAKE_LOCK_LEASE_MS = 10 * 60 * 1000L
+        private const val WAKE_LOCK_RENEW_MS = 4 * 60 * 1000L
+
+        /** Shown for the moment between the last hold going and the service stopping. */
+        private const val IDLE_LABEL = "Finishing"
 
         /** The alert channel: what the user has to come back for. Not silent, unlike [CHANNEL_ID]. */
         private const val ALERT_CHANNEL_ID = "agent_attention"
         private const val ALERT_NOTIFICATION_ID = 1002
 
-        const val ACTION_START = "dev.apkcli.agent.START"
-        const val ACTION_UPDATE = "dev.apkcli.agent.UPDATE"
+        private const val ACTION_SYNC = "dev.apkcli.agent.SYNC"
         const val ACTION_STOP_TURN = "dev.apkcli.agent.STOP_TURN"
-        const val ACTION_FINISH = "dev.apkcli.agent.FINISH"
-        const val EXTRA_LABEL = "label"
+
+        /** Held by a running turn, or by /compact. */
+        const val HOLD_TURN = "turn"
+
+        /** Held while something runs in a terminal ([dev.apkcli.core.runtime.TerminalSessions.working]). */
+        const val HOLD_TERMINALS = "terminals"
+
+        /** What keeps the service up, each with what the notification says for it, in the order taken. */
+        private val holds = LinkedHashMap<String, String>()
+
+        private class Snapshot(val label: String, val turn: Boolean)
+
+        private fun snapshot(): Snapshot? = synchronized(holds) {
+            if (holds.isEmpty()) return null
+            // The turn's words while it holds; what else holds otherwise.
+            Snapshot(holds[HOLD_TURN] ?: holds.values.first(), turn = HOLD_TURN in holds)
+        }
+
+        /**
+         * Keep the service up for [key], the notification saying [label].
+         * Again with the same key changes the words.
+         */
+        fun hold(context: Context, key: String, label: String) {
+            val first = synchronized(holds) {
+                val idle = holds.isEmpty()
+                holds[key] = label
+                idle
+            }
+            // Started only by the first hold; the others find it running,
+            // and telling a running service needs no foreground start.
+            sync(context, start = first)
+        }
+
+        /** [key] no longer needs the service; the last one to let go stops it. */
+        fun release(context: Context, key: String) {
+            synchronized(holds) { if (holds.remove(key) == null) return }
+            sync(context, start = false)
+        }
+
+        private fun sync(context: Context, start: Boolean) {
+            val intent = Intent(context, AgentService::class.java).setAction(ACTION_SYNC)
+            runCatching { if (start) context.startForegroundService(intent) else context.startService(intent) }
+                .onFailure { Log.w(TAG, "could not reach the service: ${it.message}") }
+        }
+
+        /** A turn starts: what the notification says while it runs. */
+        fun start(context: Context, label: String) = hold(context, HOLD_TURN, label)
+
+        /** What the running turn is doing now. Nothing once it has ended: a late label holds nothing up. */
+        fun update(context: Context, label: String) {
+            if (synchronized(holds) { HOLD_TURN !in holds }) return
+            hold(context, HOLD_TURN, label)
+        }
+
+        /** The turn ended. */
+        fun finish(context: Context) = release(context, HOLD_TURN)
 
         private val _stopRequested = MutableStateFlow(false)
 
@@ -196,26 +311,6 @@ class AgentService : Service() {
 
         fun consumeStopRequest() {
             _stopRequested.value = false
-        }
-
-        fun start(context: Context, label: String) {
-            val intent = Intent(context, AgentService::class.java)
-                .setAction(ACTION_START)
-                .putExtra(EXTRA_LABEL, label)
-            runCatching { context.startForegroundService(intent) }
-                .onFailure { Log.w(TAG, "could not start foreground service: ${it.message}") }
-        }
-
-        fun update(context: Context, label: String) {
-            val intent = Intent(context, AgentService::class.java)
-                .setAction(ACTION_UPDATE)
-                .putExtra(EXTRA_LABEL, label)
-            runCatching { context.startService(intent) }
-        }
-
-        fun finish(context: Context) {
-            val intent = Intent(context, AgentService::class.java).setAction(ACTION_FINISH)
-            runCatching { context.startService(intent) }
         }
 
         /**

@@ -291,10 +291,21 @@ class ExecPolicy(
         if (shim.exists()) {
             env["LD_PRELOAD"] = shim.absolutePath
         }
+        // make and CMake's builds run one job at a time unless told: a C
+        // build on an eight-core phone used one of them. Half the cores,
+        // two to four: more than that keeps a phone hot for little gain, and
+        // each job is a few processes against Android's limit of 32 children
+        // across all apps. Cargo, Ninja and Go use the cores by themselves.
+        val jobs = buildJobs()
+        env["MAKEFLAGS"] = "-j$jobs"
+        env["CMAKE_BUILD_PARALLEL_LEVEL"] = jobs.toString()
         env.putAll(packageEnvironment())
         env.putAll(extra)
         return env
     }
+
+    /** How many jobs a build runs at once; see [baseEnvironment]. */
+    fun buildJobs(cores: Int = Runtime.getRuntime().availableProcessors()): Int = (cores / 2).coerceIn(2, 4)
 
     /** Variables pointing at files that installed packages provide, for those that exist. */
     fun packageEnvironment(): Map<String, String> = buildMap {

@@ -26,4 +26,8 @@ object ServiceLocator {
 
     fun appScope(context: Context) =
         (context.applicationContext as ApkCliApplication).appScope
+
+    /** See [ApkCliApplication.processViewModels]. */
+    fun processViewModels(context: Context) =
+        (context.applicationContext as ApkCliApplication).processViewModels
 }

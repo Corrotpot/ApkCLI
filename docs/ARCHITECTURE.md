@@ -117,13 +117,53 @@ them separately produced policies that contradicted each other.
 
 ## Process isolation — partially done
 
-Currently: one process, plus a foreground service to hold priority during a
-turn.
+Currently: one process, plus a foreground service that holds it while there is
+work.
 
 The foreground service is the part that was actually needed. Without it,
 backgrounding the app mid-turn means the process is frozen or killed and the
-request that was already paid for is lost. Reading documentation in a browser
-while the agent works is normal phone behaviour, not an edge case.
+request that was already paid for is lost, and a build or a dev server stops
+with it. Watching a video while the agent works is normal phone behaviour, not
+an edge case.
+
+`AgentService` runs while anything holds it (`AgentService.hold`): a turn or
+/compact, and a terminal at work (`TerminalSessions.working`: an agent job, a
+command a chat's transcript runs, a program in the foreground of a user's
+shell, which is asked every three seconds; a shell at its prompt does not
+count). The notification says what holds it and has Stop while a turn does.
+Every change sends one intent, and the service reads the current holds rather
+than the intent's, so changes from several threads cannot overtake each other.
+While it runs it keeps:
+
+* **The foreground state.** The process stays off the cached apps freezer and
+  low on the killer's list, and keeps its network in Doze.
+* **A partial wake lock**, leased for ten minutes and renewed every four. It
+  used to be taken once for 30 minutes, after which a long turn went on with
+  the CPU free to sleep.
+* **A Wi-Fi lock through Android 13**, against Wi-Fi power save with the screen
+  off. From 14 the system turns that lock into a low-latency one that works
+  only on screen, so it is not taken.
+
+Two more things kept work from going on:
+
+* **The chat's ViewModel lived in the activity.** Swiping the app out of the
+  recents, or Back before Android 12, cleared it, and its `onCleared` stopped
+  the turn. It lives in a store of the process's now
+  (`ApkCliApplication.processViewModels`); the next activity finds the turn
+  running.
+* **Battery optimisation.** The first turn asks once, with the system's dialog,
+  to exempt the app (`BatteryExemption`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`,
+  which the Play Store limits; the app is not published there). Settings has
+  the state, the way back, and the app's system page, where vendors put their
+  own background limits.
+
+Not in the app's hands: Android 12 and later kill child processes beyond 32
+across all apps. A command killed by a SIGKILL the app did not send gets a hint
+saying so (`ShellHints.KILLED`), with the developer option that lifts the limit.
+Builds run half the cores' jobs, two to four (`MAKEFLAGS`,
+`CMAKE_BUILD_PARALLEL_LEVEL`, `ExecPolicy.buildJobs`): make used to run one
+job at a time on an eight-core phone, and more than four keeps the phone hot
+for little gain and nears the limit.
 
 A `:shell` process for PTY work is **not** built, and the reasoning is worth
 recording because it is tempting:

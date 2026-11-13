@@ -27,10 +27,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.apkcli.R
 import dev.apkcli.core.llm.ConnectionScheme
+import dev.apkcli.core.service.BatteryExemption
 import dev.apkcli.core.model.ApprovalRule
 import dev.apkcli.core.model.Endpoint
 import dev.apkcli.core.model.ReasoningSupport
@@ -233,6 +235,10 @@ fun SettingsScreen(
             }
             Note(stringResource(if (rulesActive) R.string.rules_note_active else R.string.rules_note_inactive))
 
+            Section(stringResource(R.string.settings_background))
+            Card { BackgroundSettings() }
+            Note(stringResource(R.string.settings_background_note))
+
             Section(stringResource(R.string.settings_interface))
             Card { InterfaceSettings(layout = layout, onUpdateLayout = onUpdateLayout) }
         }
@@ -355,6 +361,41 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+/**
+ * Whether Android's battery optimisation leaves the app alone
+ * ([BatteryExemption]), and the app's system page for what vendors add.
+ * Read again whenever the screen comes back: the answer is given in the
+ * system's dialog or its settings, outside the app.
+ */
+@Composable
+private fun BackgroundSettings() {
+    val context = LocalContext.current
+    var exempt by remember { mutableStateOf(BatteryExemption.granted(context)) }
+    LifecycleResumeEffect(Unit) {
+        exempt = BatteryExemption.granted(context)
+        onPauseOrDispose { }
+    }
+    ListRow(
+        title = stringResource(R.string.settings_background_battery),
+        subtitle = stringResource(if (exempt) R.string.settings_background_battery_on else R.string.settings_background_battery_off),
+        subtitleMaxLines = 3,
+        lead = { Tile(Codicons.Pulse, tone = if (exempt) TileTone.Accent else TileTone.Warning) },
+        // Exempt, the system's list is where it is taken back; the dialog asks
+        // only once it is not, and some vendors have no dialog at all.
+        onClick = {
+            if (exempt || !BatteryExemption.request(context)) BatteryExemption.openSettings(context)
+        },
+    )
+    CardDivider()
+    ListRow(
+        title = stringResource(R.string.settings_background_app),
+        subtitle = stringResource(R.string.settings_background_app_sub),
+        subtitleMaxLines = 3,
+        lead = { Tile(Codicons.SettingsGear) },
+        onClick = { BatteryExemption.openAppSettings(context) },
+    )
 }
 
 /** One connection: its scheme's tile, accent when requests go to it. */

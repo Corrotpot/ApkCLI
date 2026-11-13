@@ -714,6 +714,13 @@
     <string name="scheme_sub_openrouter">Один ключ на все модели</string>
     <string name="settings_add_connection">Добавить подключение</string>
     <string name="settings_add_connection_sub">Готовая схема или свой URL</string>
+    <string name="settings_background">Работа в фоне</string>
+    <string name="settings_background_battery">Оптимизация батареи</string>
+    <string name="settings_background_battery_on">Для ApkCLI отключена: агент и терминалы работают, пока вы в другом приложении.</string>
+    <string name="settings_background_battery_off">Включена: Android может усыпить приложение в фоне и остановить агента. Нажмите, чтобы отключить её для ApkCLI.</string>
+    <string name="settings_background_app">Настройки приложения</string>
+    <string name="settings_background_app_sub">Некоторые телефоны сами ограничивают фоновые приложения (Xiaomi, Samsung, Huawei и другие): разрешите там ApkCLI работать без ограничений.</string>
+    <string name="settings_background_note">Пока работает агент или терминал, приложение показывает уведомление и не даёт процессору уснуть, а на Android 13 и старше держит Wi-Fi без энергосбережения. Android 12 и новее убивает дочерние процессы, когда их больше 32; если сборки падают с сигналом 9, на Android 14 и новее включите в параметрах разработчика пункт «Disable child process restrictions» (отключить ограничения дочерних процессов).</string>
     <string name="settings_connections">Подключения</string>
     <string name="settings_endpoint_failed">ошибка</string>
     <string name="settings_key_rejected">Ключ не принят: %1$s</string>

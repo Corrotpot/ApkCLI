@@ -16,11 +16,20 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
-      Held only while a turn is in flight. A completion can legitimately take
-      minutes on a reasoning model, and the device suspending the network
-      mid-stream aborts it.
+      Held while a turn is in flight or something runs in a terminal
+      (AgentService). A completion can legitimately take minutes on a
+      reasoning model, a build longer, and the device suspending the CPU or
+      the network midway aborts them.
     -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!--
+      For the system's "always run in the background?" dialog
+      (BatteryExemption): exempt, the wake lock and the network hold through
+      Doze, and vendors' battery managers leave the app running. Play limits
+      this permission; the app is not published there.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application>
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -156,6 +157,9 @@ class TerminalSessions(
         private val buffer = TerminalBuffer(maxChars = SCROLLBACK_CHARS)
 
         val isTranscript: Boolean get() = kind == Kind.TRANSCRIPT
+
+        /** A shell the user types into: no command of its own, ending when they exit it. */
+        val isInteractiveShell: Boolean get() = kind == Kind.SHELL && command == null
 
         /* ------------------------------------------------------ transcript */
 
@@ -440,6 +444,52 @@ class TerminalSessions(
     val changes: StateFlow<Long> = _changes.asStateFlow()
 
     val active: List<Terminal> get() = _sessions.value.filter { it.state.value == State.RUNNING }
+
+    private val _working = MutableStateFlow<List<String>>(emptyList())
+
+    /**
+     * What runs in the terminals now, as short command lines: the agent's
+     * jobs, the command a chat's transcript runs, a session started with a
+     * command, and the program in the foreground of a user's shell. Empty
+     * when every shell waits at its prompt. What keeps the process going
+     * while the user is in another app (AgentRuntime holds AgentService for
+     * it); a shell idling at its prompt does not count, or an open terminal
+     * would keep the phone awake for nothing.
+     *
+     * Nothing tells the app that a command typed into a shell has started, so
+     * an open shell is asked every [WORK_POLL_MS]. A program started there
+     * with `&` runs outside the foreground and is not seen.
+     */
+    val working: StateFlow<List<String>> = _working.asStateFlow()
+
+    init {
+        scope.launch {
+            changes.collectLatest {
+                do {
+                    _working.value = runningNow()
+                    val shellOpen = terminals.values.any { it.isInteractiveShell && it.state.value == State.RUNNING }
+                    if (shellOpen) delay(WORK_POLL_MS)
+                } while (shellOpen)
+            }
+        }
+    }
+
+    /** What [working] holds now. Asks the kernel about each open shell. */
+    private fun runningNow(): List<String> = terminals.values
+        .filter { it.state.value == State.RUNNING }
+        .sortedBy { it.startedAt }
+        .mapNotNull { terminal ->
+            when {
+                terminal.isTranscript -> terminal.currentCommand?.takeIf { terminal.busy.value }
+                terminal.command != null -> terminal.command
+                else -> status(terminal.id)?.foreground
+            }?.let(::shortCommand)
+        }
+
+    private fun shortCommand(command: String): String {
+        val line = command.trim().lineSequence().firstOrNull().orEmpty()
+        return if (line.length <= SHORT_COMMAND) line else line.take(SHORT_COMMAND - 1) + "…"
+    }
 
     /**
      * Open a session.
@@ -766,5 +816,11 @@ class TerminalSessions(
          * sixty frames a second do not each make three syscalls.
          */
         const val STATUS_TTL_MS = 700L
+
+        /** How often an open shell is asked whether it runs a program; see [working]. */
+        const val WORK_POLL_MS = 3_000L
+
+        /** Longest command line [working] gives, for a notification's line. */
+        const val SHORT_COMMAND = 40
     }
 }
