@@ -1442,9 +1442,9 @@ whole; the agent loop; the terminals; the UI; subagents):
 * No version control. The `git_*` tools (`GitTools.kt`) are kept but not
   registered, and the prompt carries no git state. `git` as a Termux package can
   still be installed with `pkg_install`, like any other package.
-* `Message.model` is not persisted — the store has no column for it — so it is
-  lost on reload. `errorMessage` has none either; a failure's reason is kept as
-  a `Block.Notice` in the content instead, and the status is stored.
+* `Message.errorMessage` is not persisted — the store has no column for it; a
+  failure's reason is kept as a `Block.Notice` in the content instead, and the
+  status is stored. (`Message.model` is, since schema 2.)
 * **Emulator only.** The shell, packages, the PTY and the terminal panel have
   run on an API 34 x86_64 emulator, not on a physical device. The environment
   context is unit-tested on the JVM; a turn that sends it has not been run in
