@@ -541,6 +541,13 @@
 
     <!-- Terminal -->
     <string name="nav_terminal">Terminal</string>
+    <!-- open, share, notify and clip in the user's shells; %1$s: a file, a link or the start of a text -->
+    <string name="terminal_channel">Terminal</string>
+    <string name="terminal_from_shell">From the terminal</string>
+    <string name="terminal_tap_to_open">Tap to open %1$s</string>
+    <string name="terminal_tap_to_share">Tap to share %1$s</string>
+    <string name="terminal_copied">Copied to the clipboard</string>
+    <string name="terminal_not_a_file">Could not hand over %1$s: it is not a file the app can read</string>
     <string name="terminal_new">New terminal</string>
     <!-- The Terminal tab once the user has closed every session -->
     <string name="terminal_none">No terminals open</string>

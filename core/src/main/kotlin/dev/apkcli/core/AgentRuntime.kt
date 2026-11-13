@@ -109,8 +109,18 @@ class AgentRuntime(
      * purpose — see [TerminalSessions].
      */
     val terminals: TerminalSessions? by lazy {
-        ptyManager?.let { TerminalSessions(it, scope) }?.also(::keepRunningWhileWorking)
+        ptyManager?.let { TerminalSessions(it, scope) }
+            ?.also(::keepRunningWhileWorking)
+            ?.also { sessions -> sessions.onRequest = { request -> onTerminalRequest?.invoke(request) } }
     }
+
+    /**
+     * What the user's shells ask of the app: open a file or a link, share,
+     * notify, copy (TerminalBuffer.Request). Handled by the app, which has
+     * the activities for it; set before a terminal opens.
+     */
+    @Volatile
+    var onTerminalRequest: ((dev.apkcli.core.runtime.TerminalBuffer.Request) -> Unit)? = null
 
     /**
      * While something runs in a terminal, [AgentService] keeps the process

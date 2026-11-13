@@ -150,6 +150,11 @@ class TerminalSessions(
         val title: String? = null,
         /** For a transcript: tells the registry a command started or ended. */
         private val onBusyChanged: () -> Unit = {},
+        /**
+         * What the program asks of the app (TerminalBuffer.Request), for a
+         * shell the user opened; null where nothing it prints is acted on.
+         */
+        private val onRequest: ((TerminalBuffer.Request) -> Unit)? = null,
     ) {
         // Bounded by characters as well as lines: 2 000 lines of a minified
         // bundle at 4 000 characters each, with a style reference per
@@ -293,9 +298,13 @@ class TerminalSessions(
             }
             reader = session.output
                 .onEach { bytes ->
-                    synchronized(buffer) { buffer.feed(bytes) }
+                    val requests = synchronized(buffer) {
+                        buffer.feed(bytes)
+                        if (onRequest != null) buffer.takeRequests() else emptyList()
+                    }
                     lastOutputAt = System.currentTimeMillis()
                     _revision.value = synchronized(buffer) { buffer.revision }
+                    requests.forEach { request -> onRequest?.invoke(request) }
                 }
                 .onCompletion {
                     exitCode = session.exitCode
@@ -509,12 +518,15 @@ class TerminalSessions(
         rows: Int = 24,
         env: Map<String, String> = emptyMap(),
     ): Terminal {
+        // Only the user's own shell may ask the app for things, and only with
+        // the token it is started with: a file it prints cannot know it.
+        val asks = owner == Owner.USER && command == null
         val session = ptyManager.open(
             workingDir = workingDir,
             command = command,
             cols = cols,
             rows = rows,
-            env = env,
+            env = if (asks) env + (TERMINAL_REQUEST_TOKEN_ENV to requestToken) else env,
         )
         val id = when (owner) {
             Owner.USER -> "term-${userCounter.getAndIncrement()}"
@@ -532,6 +544,7 @@ class TerminalSessions(
                 prune()
                 publish()
             },
+            onRequest = if (asks) ::deliver else null,
         )
         terminal.start(cols, rows)
         terminals[id] = terminal
@@ -542,6 +555,23 @@ class TerminalSessions(
     }
 
     fun get(id: String): Terminal? = terminals[id]
+
+    /**
+     * Where the user's shells' requests go (TerminalBuffer.Request): the
+     * clipboard, and the app's own commands once their token checks out.
+     * Set by the app, which has the activities and notifications they need.
+     * Called on the reader's thread.
+     */
+    @Volatile
+    var onRequest: ((TerminalBuffer.Request) -> Unit)? = null
+
+    /** What [TERMINAL_REQUEST_TOKEN_ENV] holds in the user's shells; new with every process. */
+    private val requestToken: String = java.util.UUID.randomUUID().toString().replace("-", "")
+
+    private fun deliver(request: TerminalBuffer.Request) {
+        if (request is TerminalBuffer.Request.App && request.token != requestToken) return
+        runCatching { onRequest?.invoke(request) }.onFailure { Log.w(TAG, "terminal request failed", it) }
+    }
 
     private fun publish() {
         _sessions.value = terminals.values.sortedBy { it.startedAt }
@@ -822,5 +852,10 @@ class TerminalSessions(
 
         /** Longest command line [working] gives, for a notification's line. */
         const val SHORT_COMMAND = 40
+
+        const val TAG = "TerminalSessions"
     }
 }
+
+/** The variable the profile's `open`, `share` and `notify` read the user's shells' token from. */
+internal const val TERMINAL_REQUEST_TOKEN_ENV = "APKCLI_TERM_TOKEN"

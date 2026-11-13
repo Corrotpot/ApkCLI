@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import dev.apkcli.core.AgentRuntime
+import dev.apkcli.files.TerminalActions
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,8 @@ class ApkCliApplication : Application() {
         installStrictMode()
 
         runtime = AgentRuntime(this, appScope)
+        // `open`, `share`, `notify` and `clip` in the user's shells.
+        runtime.onTerminalRequest = TerminalActions(this, runtime.layout, appScope)::handle
 
         appScope.launch {
             val report = runtime.start()

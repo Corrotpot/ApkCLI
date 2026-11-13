@@ -318,9 +318,9 @@ class Bootstrap(
             alias ll='ls -lh'
             alias la='ls -lha'
             alias ..='cd ..'
-
-            [ -f "${'$'}HOME/.profile" ] && . "${'$'}HOME/.profile"
-            """.trimIndent() + "\n",
+            """.trimIndent() + "\n\n" + ANDROID_COMMANDS + "\n" +
+                // Last, so the user's settings still win: `unset -f open` gives back another one.
+                "[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"\n",
         )
 
         // A non-interactive copy for tool calls: same environment, no prompt,
@@ -462,6 +462,79 @@ class Bootstrap(
             "[ -f \"\$PREFIX/etc/tls/cert.pem\" ] && export SSL_CERT_FILE=\"\$PREFIX/etc/tls/cert.pem\"; " +
                 "[ -d \"\$PREFIX/etc/tls/certs\" ] && export SSL_CERT_DIR=\"\$PREFIX/etc/tls/certs\"; " +
                 "[ -d \"\$PREFIX/share/terminfo\" ] && export TERMINFO=\"\$PREFIX/share/terminfo\""
+
+        /**
+         * Android from the shell: `open` a file or a link in another app,
+         * `share` files or what is piped in, `notify`, `clip` to the clipboard.
+         * Functions, not files on the PATH: the Play build may not execute a
+         * file it wrote, and a function needs nothing executed. Each asks the
+         * app through the terminal ([TerminalBuffer.Request]); `open`, `share`
+         * and `notify` with the token the shell was started with, so text a
+         * program prints cannot pose as them. `clip` is `OSC 52`, which vim
+         * and tmux send too.
+         */
+        private val ANDROID_COMMANDS = """
+            # Android from the shell: open, share, notify, clip. They ask the app
+            # through its terminal, so they work in the app's own terminal only.
+            __apkcli_ask() {
+              __apkcli_req="${'$'}$TERMINAL_REQUEST_TOKEN_ENV;${'$'}1"
+              shift
+              for __apkcli_arg in "${'$'}@"; do
+                __apkcli_req="${'$'}__apkcli_req;${'$'}(printf '%s' "${'$'}__apkcli_arg" | base64 | tr -d '\n')"
+              done
+              { printf '\033]$TERMINAL_REQUEST_OSC;%s\007' "${'$'}__apkcli_req" > /dev/tty; } 2>/dev/null ||
+                printf '\033]$TERMINAL_REQUEST_OSC;%s\007' "${'$'}__apkcli_req"
+              unset __apkcli_req __apkcli_arg
+            }
+            __apkcli_abs() {
+              case "${'$'}1" in
+                /*) printf '%s' "${'$'}1" ;;
+                *) printf '%s/%s' "${'$'}PWD" "${'$'}1" ;;
+              esac
+            }
+            open() {
+              [ ${'$'}# -gt 0 ] || { echo 'usage: open FILE|URL...' >&2; return 2; }
+              for __apkcli_t in "${'$'}@"; do
+                case "${'$'}__apkcli_t" in
+                  http://*|https://*|mailto:*|tel:*|geo:*|market:*) __apkcli_ask open "${'$'}__apkcli_t" ;;
+                  *)
+                    [ -f "${'$'}__apkcli_t" ] || { echo "open: ${'$'}__apkcli_t: not a file" >&2; return 1; }
+                    __apkcli_ask open "${'$'}(__apkcli_abs "${'$'}__apkcli_t")"
+                    ;;
+                esac
+              done
+            }
+            share() {
+              if [ ${'$'}# -eq 0 ]; then
+                [ -t 0 ] && { echo 'usage: share FILE..., or pipe text into it' >&2; return 2; }
+                __apkcli_ask share-text "${'$'}(cat)"
+                return
+              fi
+              __apkcli_n=${'$'}#
+              while [ "${'$'}__apkcli_n" -gt 0 ]; do
+                [ -f "${'$'}1" ] || { echo "share: ${'$'}1: not a file" >&2; return 1; }
+                set -- "${'$'}@" "${'$'}(__apkcli_abs "${'$'}1")"
+                shift
+                __apkcli_n=${'$'}((__apkcli_n - 1))
+              done
+              __apkcli_ask share "${'$'}@"
+            }
+            notify() {
+              [ ${'$'}# -gt 0 ] || { echo 'usage: notify MESSAGE [TITLE]' >&2; return 2; }
+              __apkcli_ask notify "${'$'}1" "${'$'}{2:-}"
+            }
+            clip() {
+              if [ ${'$'}# -gt 0 ]; then
+                __apkcli_c=${'$'}(printf '%s' "${'$'}*" | base64 | tr -d '\n')
+              else
+                [ -t 0 ] && { echo 'usage: clip TEXT, or pipe text into it' >&2; return 2; }
+                __apkcli_c=${'$'}(base64 | tr -d '\n')
+              fi
+              { printf '\033]52;c;%s\007' "${'$'}__apkcli_c" > /dev/tty; } 2>/dev/null ||
+                printf '\033]52;c;%s\007' "${'$'}__apkcli_c"
+              unset __apkcli_c
+            }
+        """.trimIndent() + "\n"
 
         /**
          * busybox applets worth exposing. Not the full list (busybox ships

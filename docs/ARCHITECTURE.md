@@ -614,6 +614,25 @@ because a model driving a REPL keystroke by keystroke is a niche capability
 with real risk. A program that needs a keyboard is the user's to run, in their
 terminal, and the prompt says so.
 
+### Android from the shell
+
+The user's shells have `open FILE|URL`, `share FILE...` (or text piped in),
+`notify MESSAGE [TITLE]` and `clip TEXT` (or piped in). They are functions in
+the profile, not files on the PATH: the Play build may not execute a file it
+wrote, and a function needs nothing executed. Each asks the app through its
+terminal with an escape sequence that `TerminalBuffer` collects
+(`takeRequests`): `clip` is `OSC 52`, which vim and tmux send as well, and the
+others are `OSC 7001` carrying a token the shell was started with
+(`APKCLI_TERM_TOKEN`, new with every process), so a file that is printed cannot
+pose as a command. Only shells the user opened are listened to; the agent's
+commands and their transcripts are not, and an `OSC 52` query is never
+answered. `TerminalActions` carries them out: a link or a file opens in another
+app through the chooser, files are shared through the `FileProvider` (one
+outside the projects is copied to `var/exports` first, and exports older than a
+day are cleared), a notification goes on a Terminal channel. Starting an
+activity is allowed only while the app is on screen, so from the background
+`open` and `share` become a notification to tap.
+
 ### Environment context
 
 The last section of the system prompt is a tagged `<environment-context>`

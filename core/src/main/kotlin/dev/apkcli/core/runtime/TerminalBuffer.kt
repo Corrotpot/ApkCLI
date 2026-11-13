@@ -280,6 +280,31 @@ class TerminalBuffer(
     /** True while the previous character was ESC inside an OSC/DCS string. */
     private var stringEscape = false
 
+    /** The string outgrew its limit: a request in it would be read cut off, so it is dropped. */
+    private var stringCut = false
+
+    /**
+     * What a program asks of the app through the terminal: the clipboard set
+     * (`OSC 52`, which vim and tmux send), or one of the app's own commands
+     * (`open`, `share`, `notify` in the shell profile, as
+     * [TERMINAL_REQUEST_OSC]). A terminal only reads them; whether to act is
+     * its owner's decision.
+     */
+    sealed interface Request {
+        data class Clipboard(val text: String) : Request
+
+        /** [token] is what the shell was started with, so printed text cannot pose as a command. */
+        data class App(val token: String, val verb: String, val args: List<String>) : Request
+    }
+
+    private val requests = ArrayList<Request>()
+
+    /** The requests since the last call; a terminal nobody asks keeps only the newest few. */
+    fun takeRequests(): List<Request> {
+        if (requests.isEmpty()) return emptyList()
+        return requests.toList().also { requests.clear() }
+    }
+
     /**
      * Text already decoded, as `proc.step` returns it (it keeps a split UTF-8
      * sequence for the next read itself). The escape parser's state still
@@ -369,12 +394,14 @@ class TerminalBuffer(
                 escState = EscState.OSC
                 stringParam.setLength(0)
                 stringEscape = false
+                stringCut = false
             }
             // DCS, SOS, PM, APC: a string we do not interpret, ended by ST.
             'P', 'X', '^', '_' -> {
                 escState = EscState.STRING
                 stringParam.setLength(0)
                 stringEscape = false
+                stringCut = false
             }
             // Charset designation: one more byte to swallow.
             '(', ')', '*', '+', '-', '.', '/' -> escState = EscState.CHARSET
@@ -427,10 +454,14 @@ class TerminalBuffer(
                 escState = if (ch == '\\') EscState.GROUND else EscState.GROUND
             }
             ch == '\u001b' -> stringEscape = true
-            // Room for a title or a long path; a runaway string stops growing.
-            else -> if (stringParam.length < MAX_STRING) stringParam.append(ch)
+            // Room for a title or a long path, or for a clipboard's worth in
+            // a request; a runaway string stops growing.
+            else -> if (stringParam.length < stringLimit()) stringParam.append(ch) else stringCut = true
         }
     }
+
+    private fun stringLimit(): Int =
+        if (stringParam.startsWith("52;") || stringParam.startsWith("$TERMINAL_REQUEST_OSC;")) MAX_REQUEST_STRING else MAX_STRING
 
     private fun finishString() {
         stringEscape = false
@@ -439,11 +470,19 @@ class TerminalBuffer(
         val separator = text.indexOf(';')
         if (separator <= 0) return
         // 0 sets icon name and title, 2 sets the title, 7 says where the
-        // shell is. Nothing else is used.
+        // shell is; 52 and the app's own are requests (takeRequests).
+        val payload = text.substring(separator + 1)
         when (text.substring(0, separator)) {
-            "0", "2" -> title = text.substring(separator + 1).takeIf { it.isNotBlank() }?.take(120)
-            "7" -> osc7Path(text.substring(separator + 1))?.let { cwd = it }
+            "0", "2" -> title = payload.takeIf { it.isNotBlank() }?.take(120)
+            "7" -> osc7Path(payload)?.let { cwd = it }
+            "52" -> if (!stringCut) clipboardRequest(payload)?.let(::request)
+            TERMINAL_REQUEST_OSC -> if (!stringCut) appRequest(payload)?.let(::request)
         }
+    }
+
+    private fun request(request: Request) {
+        if (requests.size >= MAX_REQUESTS) requests.removeAt(0)
+        requests += request
     }
 
     private fun params(): List<Int> {
@@ -816,7 +855,39 @@ class TerminalBuffer(
 
         /** Longest OSC/DCS payload kept: a title, or a deep path for OSC 7. */
         const val MAX_STRING = 2048
+
+        /** A request's payload: a clipboard's worth of text, in base64. */
+        const val MAX_REQUEST_STRING = 512 * 1024
+
+        /** Requests kept for an owner that does not take them. */
+        const val MAX_REQUESTS = 16
     }
+}
+
+/** The OSC the app's own terminal commands use (`open`, `share`, `notify`); no terminal assigns it. */
+internal const val TERMINAL_REQUEST_OSC = "7001"
+
+/**
+ * `OSC 52`'s payload, `selection;base64`, as the text to put on the
+ * clipboard. A query (`?`) is not answered: it would hand the clipboard to
+ * whatever printed it, which may be a file someone sent.
+ */
+internal fun clipboardRequest(payload: String): TerminalBuffer.Request.Clipboard? {
+    val data = payload.substringAfter(';', missingDelimiterValue = "")
+    if (data.isEmpty() || data == "?") return null
+    val bytes = runCatching { java.util.Base64.getMimeDecoder().decode(data) }.getOrNull() ?: return null
+    return TerminalBuffer.Request.Clipboard(String(bytes, Charsets.UTF_8))
+}
+
+/** [TERMINAL_REQUEST_OSC]'s payload, `token;verb;base64;…`, as a request; null when malformed. */
+internal fun appRequest(payload: String): TerminalBuffer.Request.App? {
+    val parts = payload.split(';')
+    if (parts.size < 2 || parts[0].isEmpty() || parts[1].isEmpty()) return null
+    val args = parts.drop(2).map { encoded ->
+        val bytes = runCatching { java.util.Base64.getMimeDecoder().decode(encoded) }.getOrNull() ?: return null
+        String(bytes, Charsets.UTF_8)
+    }
+    return TerminalBuffer.Request.App(parts[0], parts[1], args)
 }
 
 /**

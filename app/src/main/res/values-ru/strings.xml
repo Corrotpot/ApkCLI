@@ -545,6 +545,13 @@
 
     <!-- Терминал -->
     <string name="nav_terminal">Терминал</string>
+    <!-- open, share, notify и clip в оболочках пользователя; %1$s: файл, ссылка или начало текста -->
+    <string name="terminal_channel">Терминал</string>
+    <string name="terminal_from_shell">Из терминала</string>
+    <string name="terminal_tap_to_open">Нажмите, чтобы открыть %1$s</string>
+    <string name="terminal_tap_to_share">Нажмите, чтобы поделиться: %1$s</string>
+    <string name="terminal_copied">Скопировано в буфер обмена</string>
+    <string name="terminal_not_a_file">Не удалось передать %1$s: это не файл, который приложение может прочитать</string>
     <string name="terminal_new">Новый терминал</string>
     <string name="terminal_none">Открытых терминалов нет</string>
     <string name="terminal_send">Отправить</string>
