@@ -62,6 +62,7 @@ import dev.apkcli.core.model.ReasoningSupport
 import dev.apkcli.core.model.Role
 import dev.apkcli.core.model.ToolCallStatus
 import dev.apkcli.core.model.UserShell
+import dev.apkcli.core.runtime.ShellRunner
 import dev.apkcli.core.store.ConversationStore
 import dev.apkcli.ui.EditorBus
 import dev.apkcli.ui.chat.components.ChangesBar
@@ -120,6 +121,10 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.util.Locale
 
@@ -640,6 +645,38 @@ private data class RenderItem(
     val digest: ConversationStore.StoredDigest? = null,
 )
 
+/**
+ * A command's stored result as [ToolDisplay.Command], the card it had while
+ * it ran: what it printed and how it ended, read back from the text the model
+ * got (ShellRunner.Result.readBack) without its "(no output)" and closing
+ * line, which are English for the model. Null for any other call, or text
+ * that is not a command's.
+ */
+internal fun commandDisplay(use: Block.ToolUse, result: Block.ToolResult): ToolDisplay.Command? {
+    if (use.name !in COMMAND_TOOLS) return null
+    var text = result.content
+    // Whole, as the card shows it while it runs; toolTarget keeps a first line.
+    var command = runCatching {
+        (Json.parseToJsonElement(use.argumentsJson).jsonObject["command"] as? JsonPrimitive)?.contentOrNull
+    }.getOrNull()
+    // build_run and test_run say first what they ran: "`./gradlew test` (Gradle)".
+    BUILD_HEAD.find(text)?.takeIf { use.name != "sh_exec" }?.let { head ->
+        command = head.groupValues[1]
+        text = text.substring(head.range.last + 1)
+    }
+    val printed = ShellRunner.Result.readBack(text) ?: return null
+    return ToolDisplay.Command(
+        command = command.orEmpty(),
+        exitCode = printed.exitCode,
+        output = printed.output,
+        durationMs = printed.durationMs,
+        timedOut = printed.timedOut,
+    )
+}
+
+private val COMMAND_TOOLS = setOf("sh_exec", "build_run", "test_run")
+private val BUILD_HEAD = Regex("^`([^`\n]*)`[^\n]*\n\n")
+
 /** Why [command] cannot run now; null when it can. */
 private fun blockOf(command: ChatCommands.Command, state: ChatViewModel.UiState): ChatViewModel.CompactBlock? = when (command) {
     ChatCommands.Command.COMPACT -> state.compactBlock
@@ -726,7 +763,10 @@ private fun findItemOf(item: RenderItem, inFlight: Set<String>, noResult: String
                 when {
                     diff != null -> segments += diffFindSegments("tool:${use.callId}:d", diff.unified)
                     // As its output box draws it.
-                    result != null -> segments += "tool:${use.callId}:b" to monoShown(result.content, clipped, locale)
+                    result != null -> {
+                        val shown = commandDisplay(use, result)?.output ?: result.content
+                        segments += "tool:${use.callId}:b" to monoShown(shown, clipped, locale)
+                    }
                     use.callId !in inFlight -> segments += "tool:${use.callId}:b" to noResult
                 }
             }
@@ -922,7 +962,9 @@ private fun AssistantMessage(
                             removedLines = stored.removed,
                             snapshotId = stored.snapshotId,
                         )
-                    } ?: result?.subagent?.let { ToolDisplay.Subagent(it) },
+                    } ?: result?.subagent?.let { ToolDisplay.Subagent(it) }
+                        // A command as its card drew it while it ran, not the text the model got.
+                        ?: result?.let { commandDisplay(use, it) },
                     durationMs = result?.durationMs,
                     isError = result?.isError == true,
                     argumentsJson = use.argumentsJson,

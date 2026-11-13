@@ -272,7 +272,7 @@ fun ToolCallCard(
                 if (call.images.isNotEmpty()) ToolImages(call.callId, call.images)
                 when (val display = call.display) {
                     is ToolDisplay.Diff -> DiffView(display, truncated = call.diffTruncated, onRevert = onRevert, findSegment = findDiff)
-                    is ToolDisplay.Command -> CommandView(display)
+                    is ToolDisplay.Command -> CommandView(display, findSegment = findBody)
                     is ToolDisplay.Matches -> MatchesView(display)
                     is ToolDisplay.SearchResults -> SearchResultsView(display)
                     is ToolDisplay.Tasks -> TaskChecklist(display.items)
@@ -463,8 +463,13 @@ private fun MonoBlock(text: String, maxHeight: Int = 220, findSegment: String? =
     }
 }
 
+/**
+ * `$ command`, what it printed (nothing at all when it printed nothing), and
+ * how it ended, in the screen's words. [findSegment] makes the output
+ * searchable, as the transcript lists it (ChatScreen's findItemOf).
+ */
 @Composable
-private fun CommandView(display: ToolDisplay.Command) {
+private fun CommandView(display: ToolDisplay.Command, findSegment: String? = null) {
     val colors = LocalEditorColors.current
     Column {
         Row(
@@ -479,7 +484,7 @@ private fun CommandView(display: ToolDisplay.Command) {
             val command = remember(display.command, pattern, locale) { monoShown(display.command, pattern, locale) }
             Text(command, style = Design.Type.CodeSmall, color = Design.Colors.Text)
         }
-        MonoBlock(display.output)
+        MonoBlock(display.output, findSegment = findSegment)
         val ok = display.exitCode == 0 && !display.timedOut
         Row(
             verticalAlignment = Alignment.CenterVertically,

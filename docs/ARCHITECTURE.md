@@ -742,6 +742,12 @@ obvious failure.
   characters (`reasoningPieces`), so only the last piece is laid out again.
 * **Tool cards collapsed by default.** A session makes dozens; expanded, the
   transcript is unreadable. The one-line summary stays visible.
+* **A command's card stays a command's card.** Once its result is stored,
+  `sh_exec`, `build_run` and `test_run` are drawn as while they ran: the line,
+  what it printed and how it ended, in the screen's language. It is read back
+  from the text the model got (`ShellRunner.Result.readBack`), without the
+  model's "(no output)" and closing "Exit code 0 in 15ms.", which the card
+  used to show in English. A command that printed nothing shows no output box.
 * **An output box draws at most 40 000 characters.** Past that it shows the
   first 10 000 and the last 24 000, cut at line breaks, with a line between
   them saying how many are left out (`monoShown`); so does a command's own

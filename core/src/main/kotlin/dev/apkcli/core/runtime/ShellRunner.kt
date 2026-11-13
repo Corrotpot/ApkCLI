@@ -77,7 +77,7 @@ class ShellRunner(
                 append(stderr.trimEnd())
                 if (stderrTruncated) append("\n[stderr truncated]")
             }
-            if (isEmpty()) append("(no output)")
+            if (isEmpty()) append(NO_OUTPUT)
             note?.let { append("\n\n").append(it) }
             append("\n\n")
             when {
@@ -86,6 +86,47 @@ class ShellRunner(
                 )
                 signal != null -> append("Killed by signal $signal after ${durationMs}ms.")
                 else -> append("Exit code $exitCode in ${durationMs}ms.")
+            }
+        }
+
+        /** [forModel]'s text read back: what the command printed, and how it ended. */
+        data class Printed(
+            val output: String,
+            val exitCode: Int?,
+            val signal: Int?,
+            val timedOut: Boolean,
+            val durationMs: Long,
+        )
+
+        companion object {
+            /** What [forModel] says for a command that printed nothing; the model's, not the screen's. */
+            private const val NO_OUTPUT = "(no output)"
+
+            /** How [forModel] ends: the last such line, since what a command prints may hold one. */
+            private val ENDING = Regex(
+                "\n\n(?:Exit code (-?\\d+|null) in (\\d+)ms\\.|Killed by signal (\\d+) after (\\d+)ms\\." +
+                    "|Timed out after (\\d+)ms; it and everything it started were killed\\.)",
+            )
+
+            /**
+             * A stored result of [forModel] (with whatever a tool added after
+             * it, such as a hint) as the screen shows it: the output without
+             * the model's "(no output)" and closing line, and how it ended.
+             * The chat draws a command's card from this once the call is over,
+             * as it drew it while the command ran. Null when [text] is not one.
+             */
+            fun readBack(text: String): Printed? {
+                val end = ENDING.findAll(text).lastOrNull() ?: return null
+                val (code, ms, signal, killedMs, timedOutMs) = end.destructured
+                val printed = text.substring(0, end.range.first)
+                val output = if (printed.startsWith(NO_OUTPUT)) printed.removePrefix(NO_OUTPUT).trimStart('\n') else printed
+                return Printed(
+                    output = output,
+                    exitCode = code.toIntOrNull(),
+                    signal = signal.toIntOrNull(),
+                    timedOut = timedOutMs.isNotEmpty(),
+                    durationMs = (ms.ifEmpty { killedMs }.ifEmpty { timedOutMs }).toLongOrNull() ?: 0,
+                )
             }
         }
     }
