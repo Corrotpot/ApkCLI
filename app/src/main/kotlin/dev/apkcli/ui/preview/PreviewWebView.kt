@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
+import android.net.http.SslError
 import android.webkit.MimeTypeMap
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -97,6 +100,17 @@ internal object PreviewWebView {
             if (request.isForMainFrame) state.failed = request.url.toString()
         }
 
+        /**
+         * A dev server's own certificate (`vite --https`) is accepted on this
+         * device's loopback alone, where nothing stands between the page and
+         * the server; anywhere else a bad certificate stops the page.
+         */
+        @SuppressLint("WebViewClientOnReceivedSslError")
+        override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+            val host = runCatching { Uri.parse(error.url).host }.getOrNull()
+            if (host in LOOPBACK) handler.proceed() else handler.cancel()
+        }
+
         private fun notFound(context: Context, path: String): WebResourceResponse {
             val page = "<!doctype html><meta name=viewport content=\"width=device-width\">" +
                 "<body style=\"font:16px sans-serif;padding:24px;color:#888\">" +
@@ -127,4 +141,6 @@ internal object PreviewWebView {
     private val TEXT_TYPES = setOf("application/json", "application/manifest+json", "image/svg+xml", "application/javascript")
 
     private val NO_CACHE = mapOf("Cache-Control" to "no-store")
+
+    private val LOOPBACK = setOf("localhost", "127.0.0.1", "[::1]", "::1")
 }
