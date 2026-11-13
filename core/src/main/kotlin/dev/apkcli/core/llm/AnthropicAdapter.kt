@@ -97,6 +97,7 @@ class AnthropicAdapter : LlmProtocolAdapter {
         var stopReason: String? = null
         var promptTokens = 0
         var cachedTokens = 0
+        var cacheWrites = 0
 
         Sse.read(source) { event ->
             if (Sse.isDone(event.data)) return@read false
@@ -108,8 +109,9 @@ class AnthropicAdapter : LlmProtocolAdapter {
             when (type) {
                 "message_start" -> {
                     obj.obj("message")?.obj("usage")?.let { usage ->
-                        promptTokens = usage.int("input_tokens", 0)
+                        promptTokens = promptTokensOf(usage)
                         cachedTokens = usage.int("cache_read_input_tokens", 0)
+                        cacheWrites = usage.int("cache_creation_input_tokens", 0)
                     }
                 }
 
@@ -168,6 +170,7 @@ class AnthropicAdapter : LlmProtocolAdapter {
                                 promptTokens = promptTokens,
                                 completionTokens = usage.int("output_tokens", 0),
                                 cachedPromptTokens = cachedTokens,
+                                cacheWriteTokens = cacheWrites,
                             ),
                         )
                     }
@@ -205,9 +208,10 @@ class AnthropicAdapter : LlmProtocolAdapter {
         obj.obj("usage")?.let { usage ->
             emit(
                 StreamEvent.Usage(
-                    promptTokens = usage.int("input_tokens", 0),
+                    promptTokens = promptTokensOf(usage),
                     completionTokens = usage.int("output_tokens", 0),
                     cachedPromptTokens = usage.int("cache_read_input_tokens", 0),
+                    cacheWriteTokens = usage.int("cache_creation_input_tokens", 0),
                 ),
             )
         }
@@ -236,15 +240,32 @@ class AnthropicAdapter : LlmProtocolAdapter {
 
     /* ------------------------------------------------------- request shaping */
 
-    private fun buildBody(request: CompletionRequest, streaming: Boolean): JsonObject =
+    internal fun buildBody(request: CompletionRequest, streaming: Boolean): JsonObject =
         buildJsonObject {
             put("model", request.model.id)
             // Required by the API, and it must leave room for the thinking
             // budget as well as the visible answer.
             put("max_tokens", request.maxOutputTokens)
             put("stream", streaming)
-            if (request.system.isNotBlank()) put("system", request.system)
-            put("messages", encodeMessages(request.messages))
+            // The stable part with a cache breakpoint: tools and the system
+            // prompt are read back from the cache on every request of the
+            // session. The part that changes goes with the newest message.
+            val system = SystemSplit(request)
+            if (system.stable.isNotBlank()) {
+                put(
+                    "system",
+                    buildJsonArray {
+                        add(
+                            buildJsonObject {
+                                put("type", "text")
+                                put("text", system.stable)
+                                put("cache_control", EPHEMERAL)
+                            },
+                        )
+                    },
+                )
+            }
+            put("messages", encodeMessages(request.messages, system.appContext))
 
             if (request.stopSequences.isNotEmpty()) {
                 put("stop_sequences", buildJsonArray { request.stopSequences.forEach { add(it) } })
@@ -343,7 +364,11 @@ class AnthropicAdapter : LlmProtocolAdapter {
      *  * A `digest` becomes a user message prefixed as context, since there is
      *    no additional system slot in the transcript.
      */
-    private fun encodeMessages(messages: List<Message>): JsonArray {
+    /**
+     * @param appContext the system prompt's per-request part ([SystemSplit]),
+     *   put after the newest user turn's cache breakpoint.
+     */
+    private fun encodeMessages(messages: List<Message>, appContext: String? = null): JsonArray {
         // Built as (role, blocks) pairs first, then adjacent same-role entries
         // are merged, because this API is strict about the shape of the
         // transcript in two ways the chat protocol is not:
@@ -464,6 +489,26 @@ class AnthropicAdapter : LlmProtocolAdapter {
             )
         }
 
+        // Prompt caching. Anthropic writes a cache entry only at a breakpoint
+        // and looks back from each one for entries earlier requests wrote: so
+        // one on the newest user turn's last block, which the next request
+        // finds, and one on the user turn before, where the request before
+        // this one put its own. The per-request context comes after both, or
+        // it would change every entry and none would ever be read.
+        val last = entries.indexOfLast { it.first == "user" }
+        val before = (last - 1 downTo 0).firstOrNull { entries[it].first == "user" }
+        listOfNotNull(before, last.takeIf { it >= 0 }).forEach { index ->
+            val blocks = entries[index].second
+            if (blocks.isNotEmpty()) blocks[blocks.lastIndex] = JsonObject(blocks.last() + ("cache_control" to EPHEMERAL))
+        }
+        if (appContext != null) {
+            val text = buildJsonObject {
+                put("type", "text")
+                put("text", appContext)
+            }
+            if (last >= 0 && last == entries.lastIndex) entries[last].second += text else entries += "user" to mutableListOf(text)
+        }
+
         return buildJsonArray {
             entries.forEach { (role, blocks) ->
                 add(
@@ -522,7 +567,19 @@ class AnthropicAdapter : LlmProtocolAdapter {
         )
     }
 
+    /**
+     * The whole prompt a response's usage counts: `input_tokens` is only the
+     * part the cache did not hold, so with caching it was a fraction of the
+     * prompt, and the token estimator calibrated against it would have read
+     * the window as nearly empty.
+     */
+    private fun promptTokensOf(usage: JsonObject): Int =
+        usage.int("input_tokens", 0) + usage.int("cache_read_input_tokens", 0) + usage.int("cache_creation_input_tokens", 0)
+
     private companion object {
         const val THINKING_DISABLED = "disabled"
+
+        /** A prompt cache breakpoint, the five-minute kind. */
+        val EPHEMERAL = buildJsonObject { put("type", "ephemeral") }
     }
 }

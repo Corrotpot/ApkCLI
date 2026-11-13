@@ -19,9 +19,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import java.io.IOException
@@ -268,12 +270,14 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
             completionTokens = int("completion_tokens", int("output_tokens", 0)),
             reasoningTokens = details?.int("reasoning_tokens", 0) ?: 0,
             cachedPromptTokens = promptDetails?.int("cached_tokens", 0) ?: 0,
+            // OpenRouter's, for a model that caches at breakpoints.
+            cacheWriteTokens = promptDetails?.int("cache_write_tokens", 0) ?: 0,
         )
     }
 
     /* ------------------------------------------------------- request shaping */
 
-    private fun buildBody(request: CompletionRequest, stream: Boolean): JsonObject =
+    internal fun buildBody(request: CompletionRequest, stream: Boolean): JsonObject =
         buildJsonObject {
             put("model", request.model.id)
             put("messages", encodeMessages(request))
@@ -378,12 +382,80 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
      *    if it had no text, otherwise the `tool` messages reference a call the
      *    server never saw and the request is rejected.
      */
-    private fun encodeMessages(request: CompletionRequest): JsonArray = buildJsonArray {
-        if (request.system.isNotBlank()) {
+    private fun encodeMessages(request: CompletionRequest): JsonArray {
+        val system = SystemSplit(request)
+        val out = encodeTranscript(request, system.stable).map { it.jsonObject }.toMutableList()
+        val last = out.lastIndex
+        if (cachesAtBreakpoints(request)) {
+            // A breakpoint on the newest message, where the next request's
+            // lookback finds it, and on the one the request before this
+            // ended with, right before its reply: that is where it wrote its
+            // own. The system prompt's is set in encodeTranscript.
+            val reply = out.indexOfLast { it.str("role") == "assistant" }
+            listOf(reply - 1, last)
+                .filter { it > 0 && out[it].str("role") != "assistant" }
+                .distinct()
+                .forEach { out[it] = cached(out[it]) }
+        }
+        // After the cached part, where it changes nothing a cache holds.
+        system.appContext?.let { context ->
+            if (last >= 0 && out[last].str("role") != "assistant") {
+                out[last] = withText(out[last], context)
+            } else {
+                out += buildJsonObject {
+                    put("role", "user")
+                    put("content", context)
+                }
+            }
+        }
+        return JsonArray(out)
+    }
+
+    /**
+     * Anthropic's models behind OpenRouter cache only at the breakpoints a
+     * request sets (`cache_control` on a content part). The other models it
+     * serves, and every other endpoint here, match a request's prefix by
+     * themselves, which [SystemSplit] keeps the same from one request to the next.
+     */
+    private fun cachesAtBreakpoints(request: CompletionRequest): Boolean =
+        ConnectionScheme.of(request.endpoint) == ConnectionScheme.OPENROUTER && request.model.id.startsWith("anthropic/")
+
+    /** [message] with a cache breakpoint on its last content part; text content becomes one part. */
+    private fun cached(message: JsonObject): JsonObject {
+        val parts = when (val content = message["content"]) {
+            is JsonArray -> content.map { it.jsonObject }
+            else -> listOf(textPart(message.str("content").orEmpty()))
+        }
+        if (parts.isEmpty()) return message
+        val marked = parts.dropLast(1) + JsonObject(parts.last() + ("cache_control" to EPHEMERAL))
+        return JsonObject(message + ("content" to JsonArray(marked)))
+    }
+
+    /** [message] with [text] after what it says: as one more part when it has parts. */
+    private fun withText(message: JsonObject, text: String): JsonObject {
+        val content = when (val current = message["content"]) {
+            is JsonArray -> JsonArray(current + textPart(text))
+            else -> JsonPrimitive(listOfNotNull(message.str("content")?.takeIf { it.isNotEmpty() }, text).joinToString("\n\n"))
+        }
+        return JsonObject(message + ("content" to content))
+    }
+
+    private fun textPart(text: String): JsonObject = buildJsonObject {
+        put("type", "text")
+        put("text", text)
+    }
+
+    private fun encodeTranscript(request: CompletionRequest, system: String): JsonArray = buildJsonArray {
+        if (system.isNotBlank()) {
             add(
                 buildJsonObject {
                     put("role", "system")
-                    put("content", request.system)
+                    if (cachesAtBreakpoints(request)) {
+                        // Tools and the stable prompt, read back on every request of the session.
+                        put("content", JsonArray(listOf(JsonObject(textPart(system) + ("cache_control" to EPHEMERAL)))))
+                    } else {
+                        put("content", system)
+                    }
                 },
             )
         }
@@ -545,5 +617,8 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
 
     companion object {
         private const val TAG = "OpenAiChatAdapter"
+
+        /** A prompt cache breakpoint, Anthropic's five-minute kind. */
+        private val EPHEMERAL = buildJsonObject { put("type", "ephemeral") }
     }
 }

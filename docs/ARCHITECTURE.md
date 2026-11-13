@@ -414,6 +414,22 @@ the third decimal with and without points, and with the window-fill line left
 in the system turn every request of the turn cost the cold price, about 40%
 more by its end. The numbers are in `docs/PROVIDERS.md`.
 
+The other adapters split it the same way now (`SystemSplit`); they used to
+send the prompt whole, its changing part at the head of every request, so no
+cache reached the conversation and a long chat was read in full on every
+request. The OpenAI format puts the stable part in the system message and the
+changing one at the end of the newest message, which is all OpenAI's,
+DeepSeek's and Gemini's caches need: they match a prefix by themselves.
+Anthropic's caches only at breakpoints, and writes an entry only at one, so
+its requests set three: on the stable system prompt, on the newest user turn's
+last block, which the next request's lookback finds, and on the user turn
+before it, where the previous request set its own; the changing part goes after
+them, in a block of its own. Claude behind OpenRouter gets the same, as
+`cache_control` on content parts. Anthropic's `input_tokens` is only what the
+cache did not hold, so the prompt a response reports is that plus the cache's
+reads and writes; counted alone, it would have calibrated the token estimator
+to read the window as nearly empty.
+
 ## Connection schemes
 
 A connection used to be a form: URL, wire format, auth header, extra headers.

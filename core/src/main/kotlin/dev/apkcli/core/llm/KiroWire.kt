@@ -79,9 +79,9 @@ object KiroWire {
         // with the current message, after everything a cached prefix covers.
         // Left in the system turn, it made every request cost the cold price
         // (KiroPromptCache).
-        val split = request.systemStableLength.takeIf { it in 0..request.system.length } ?: request.system.length
-        val stableSystem = request.system.substring(0, split).trim()
-        val volatileSystem = request.system.substring(split).trim()
+        val system = SystemSplit(request)
+        val stableSystem = system.stable
+        val volatileSystem = system.volatile
 
         // Where the prompt cache points go, if this model has one at all.
         val cache = KiroPromptCache.plan(
@@ -910,13 +910,6 @@ object KiroWire {
 
     /** A prompt cache point's type, as Kiro takes it: Bedrock's only one. */
     private const val CACHE_POINT = "default"
-
-    /**
-     * The per-request part of the system prompt, as the current message
-     * carries it: marked as the app's, so it is not read as the user's words.
-     */
-    private fun appContext(text: String): String =
-        "<app-context>\nSent by the app with this request, not written by the user.\n\n$text\n</app-context>"
 
     /** The window of a listed model that does not say: the service's usual one. */
     private const val DEFAULT_WINDOW = 200_000
