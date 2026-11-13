@@ -292,7 +292,9 @@ class AgentLoop(
                             error.discoveredContextLimit?.let { emit(AgentEvent.ContextLimitLearned(it)) }
                             compactions++
                             sentSinceCompaction = false
-                            runCompaction(current, again, plan)
+                            // Not within the request: the provider has just
+                            // refused it as too long.
+                            runCompaction(current, again, plan, withinRequest = false)
                             continue
                         }
                         Log.i(TAG, "refused as too long, and nothing worth archiving (${plan.reason})")
@@ -349,10 +351,18 @@ class AgentLoop(
         ),
     )
 
+    /**
+     * Compact before the next request.
+     *
+     * @param withinRequest ask the summary at the end of the request that
+     *   was about to go ([Compactor.Within]): the model writes it from all it
+     *   worked with, and the provider's prompt cache has its prefix.
+     */
     private suspend fun FlowCollector<AgentEvent>.runCompaction(
         config: TurnConfig,
         prepared: Prepared,
         plan: ContextBudget.Plan,
+        withinRequest: Boolean = true,
     ) {
         emit(AgentEvent.CompactionStarted(plan.reason))
         val result = compactor.compact(
@@ -362,6 +372,7 @@ class AgentLoop(
             endpoint = config.endpoint,
             model = config.model,
             previous = prepared.digest,
+            within = if (withinRequest) Compactor.Within(agentRequest(config, prepared), prepared.accounting.promptTokens) else null,
         )
         when (result) {
             is Compactor.Result.Compacted -> emit(
@@ -607,6 +618,25 @@ class AgentLoop(
         val cutOff: Boolean = false,
     )
 
+    /**
+     * The request [prepared] makes. One builder for the request sent and the
+     * one a summary is asked within ([runCompaction]): the second shares the
+     * first's prefix only while the two are built the same way.
+     */
+    private fun agentRequest(config: TurnConfig, prepared: Prepared): CompletionRequest = CompletionRequest(
+        endpoint = config.endpoint,
+        model = config.model,
+        apiKey = null, // resolved by LlmClient from the secret store
+        system = prepared.systemPrompt,
+        systemStableLength = prepared.systemStableLength,
+        messages = prepared.messages,
+        tools = registry.declarationsFor(config.agent),
+        thinking = config.thinkingMode,
+        reasoningEffort = config.reasoningEffort,
+        maxOutputTokens = config.model.maxOutputTokens,
+        stream = true,
+    )
+
     private suspend fun streamAssistantTurn(
         collector: FlowCollector<AgentEvent>,
         config: TurnConfig,
@@ -645,19 +675,7 @@ class AgentLoop(
         var promptTokensReported = 0
         var lastPersist = 0L
 
-        val request = CompletionRequest(
-            endpoint = config.endpoint,
-            model = config.model,
-            apiKey = null, // resolved by LlmClient from the secret store
-            system = prepared.systemPrompt,
-            systemStableLength = prepared.systemStableLength,
-            messages = prepared.messages,
-            tools = registry.declarationsFor(config.agent),
-            thinking = config.thinkingMode,
-            reasoningEffort = config.reasoningEffort,
-            maxOutputTokens = config.model.maxOutputTokens,
-            stream = true,
-        )
+        val request = agentRequest(config, prepared)
 
         try {
             llm.stream(request).collect { event ->

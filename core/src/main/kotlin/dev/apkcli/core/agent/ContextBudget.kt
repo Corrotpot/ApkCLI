@@ -112,11 +112,12 @@ class ContextBudget(private val settings: ContextSettings) {
         accounting.fraction >= settings.hardThreshold
 
     /**
-     * Start preparing a digest in the background.
+     * Whether a digest could be prepared in the background now, ahead of the
+     * hard threshold, so the summarising request would run while the user
+     * reads the previous answer rather than while they wait for the next.
      *
-     * Done ahead of the hard threshold so the summarising request — itself a
-     * full round trip to the model — happens while the user is reading the
-     * previous answer, not while they are waiting for the next one.
+     * Nothing calls it yet: the summary is asked when compaction is due, and
+     * the user waits for it.
      */
     fun shouldPrepareEarly(accounting: Accounting): Boolean =
         accounting.fraction >= settings.softThreshold

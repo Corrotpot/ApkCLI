@@ -3,8 +3,8 @@ package dev.apkcli.core.agent
 import android.util.Log
 import dev.apkcli.core.llm.CompletionRequest
 import dev.apkcli.core.llm.LlmClient
+import dev.apkcli.core.llm.LlmError
 import dev.apkcli.core.llm.StreamEvent
-import dev.apkcli.core.llm.ToolDeclaration
 import dev.apkcli.core.model.Block
 import dev.apkcli.core.model.ContextSettings
 import dev.apkcli.core.model.ConversationDigest
@@ -19,8 +19,6 @@ import dev.apkcli.core.store.ConversationStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 
 /**
  * Turns a full context window into a digest.
@@ -31,19 +29,26 @@ import kotlinx.serialization.json.jsonObject
  * approaches that already failed, and asks the user things they already
  * answered — each of which costs more than the summary saved.
  *
- * Three mechanisms avoid that:
+ * Four mechanisms avoid that:
  *
- *  1. **A schema, not prose.** The model fills in
- *     [ConversationDigest] through a forced tool call, so the fields that matter
- *     — failed approaches, decisions with reasons, the file map — cannot be
- *     omitted in favour of a readable narrative.
+ *  1. **Asked where the work is.** The summary is asked at the end of the
+ *     request the agent was about to send ([CompactionAsk.within]), so the
+ *     model writes it from everything it worked with, tool output whole, and
+ *     the work goes on from the same place right after. Only when that request
+ *     would not fit does a transcript of the span go in a request of its own.
  *
- *  2. **Cumulative merging.** Each compaction merges into the previous digest
- *     rather than re-summarising from scratch. Repeated lossy passes over the
- *     same text is how detail evaporates; carrying entries forward verbatim is
- *     how it does not.
+ *  2. **A schema, not prose.** The model fills in [ConversationDigest] as a
+ *     JSON object, so the fields that matter — failed approaches, decisions
+ *     with reasons, the file map — cannot be omitted in favour of a readable
+ *     narrative.
  *
- *  3. **Nothing is deleted.** Archived messages stay in SQLite and stay indexed
+ *  3. **Cumulative merging.** The model writes what the digest does not have
+ *     yet and the app merges it in ([ConversationDigest.mergedWith]). Repeated
+ *     lossy passes over the same text is how detail evaporates; and a reply
+ *     that wrote the whole digest out again grew with the session until it
+ *     no longer fitted the output limit.
+ *
+ *  4. **Nothing is deleted.** Archived messages stay in SQLite and stay indexed
  *     for full-text search. The digest is a fast path; `conversation_search` is
  *     the fallback. That turns "I no longer have that in context" into a lookup
  *     rather than a dead end.
@@ -54,12 +59,11 @@ class Compactor(
     private val settings: ContextSettings,
 ) {
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-        isLenient = true
-        coerceInputValues = true
-    }
+    /**
+     * The request the agent is about to send, and what it holds as the budget
+     * counted it: where [compact] asks for the summary first.
+     */
+    class Within(val request: CompletionRequest, val promptTokens: Int)
 
     sealed interface Result {
         data class Compacted(
@@ -105,6 +109,8 @@ class Compactor(
      *   kept and nothing is archived ([Result.Skipped] with [NOT_SHORTER]).
      *   At least one: a summary that frees nothing only costs a request,
      *   and the chat said it "freed 0". For /compact, [MIN_MANUAL_GAIN].
+     * @param within the request the agent is about to send, to ask the
+     *   summary at its end; null asks with a transcript straight away.
      */
     suspend fun compact(
         sessionId: String,
@@ -116,6 +122,7 @@ class Compactor(
         focus: String? = null,
         trigger: String = ConversationDigest.TRIGGER_AUTO,
         minGain: Int = 1,
+        within: Within? = null,
     ): Result {
         if (plan.isNoop) return Result.Skipped(plan.reason)
 
@@ -124,7 +131,10 @@ class Compactor(
 
         Log.i(TAG, "compacting ${span.size} message(s) of session $sessionId")
 
-        val (produced, failure) = requestDigest(span, endpoint, model, previous, focus)
+        val (asked, failure) = requestDigest(span, endpoint, model, previous, focus, within)
+        // Stamped with where they were learned, so that a long session's
+        // merge keeps the newest files when it has to drop some.
+        val produced = asked?.stamped(plan.archiveToSeq)
         if (produced == null) {
             return Result.Failed(
                 "The model did not return a usable digest. Nothing was archived, so no " +
@@ -172,11 +182,10 @@ class Compactor(
     }
 
     /**
-     * Ask the model to fill in the digest schema.
-     *
-     * Uses a forced tool call rather than "reply with JSON". Forcing the call
-     * means the provider validates the shape, and a model that would otherwise
-     * wrap its answer in prose or a code fence cannot.
+     * Ask the model for what the digest does not have yet: within the
+     * agent's own request first, then, if that cannot be sent or brings no
+     * summary, with a transcript of [span]. Returns the digest, or why there
+     * is none.
      */
     private suspend fun requestDigest(
         span: List<Message>,
@@ -184,142 +193,148 @@ class Compactor(
         model: ModelSpec,
         previous: ConversationDigest?,
         focus: String?,
+        within: Within?,
     ): Pair<ConversationDigest?, String?> {
-        val tool = ToolDeclaration(
-            name = DIGEST_TOOL,
-            description = "Record the structured digest of this conversation span.",
-            parameters = runCatching {
-                json.parseToJsonElement(ConversationDigest.REQUEST_SCHEMA).jsonObject
-            }.getOrElse { return null to "the digest schema did not parse" },
-        )
+        val quick = within?.let { askWithin(it) }
+        quick?.first?.let { return it to null }
+        quick?.second?.let { Log.i(TAG, "summary within the request failed ($it); asking with a transcript") }
+        val (digest, failure) = askWithTranscript(span, endpoint, model, previous, focus)
+        if (digest != null) return digest to null
+        return null to listOfNotNull(quick?.second, failure).joinToString("; then ")
+    }
 
-        val transcript = renderTranscript(span)
-        val previousBlock = previous?.let {
-            "\n\n## Previous digest, to merge into\n\n${it.render()}"
-        } ?: ""
+    /** The summary asked at the end of the agent's own request, and once more if the reply held none. */
+    private suspend fun askWithin(within: Within): Pair<ConversationDigest?, String?> {
+        var nudge: String? = null
+        var failure = "the model answered without the summary"
+        repeat(2) {
+            val request = CompactionAsk.within(within.request, within.promptTokens, nudge)
+                ?: return null to "the conversation was too long to ask within it"
+            val reply = send(request)
+            reply.error?.let { return null to it }
+            CompactionAsk.parse(reply.text)?.let { return it to null }
+            if (reply.cutOff) failure = "the summary was cut off at the output limit"
+            nudge = if (reply.cutOff) CompactionAsk.CUT_NUDGE else CompactionAsk.NUDGE
+        }
+        return null to failure
+    }
 
-        val request = CompletionRequest(
-            endpoint = endpoint,
-            model = model,
-            apiKey = null, // resolved by LlmClient
-            system = SystemPrompt.compactionInstruction(focus),
-            messages = listOf(
-                Message(
-                    id = "compaction-input",
-                    sessionId = "compaction",
-                    role = Role.USER,
-                    content = listOf(
-                        Block.Text(
-                            "## Conversation span to digest (turns " +
-                                "${span.first().seq}–${span.last().seq})\n\n$transcript$previousBlock",
-                        ),
+    /**
+     * The summary asked with a transcript of [span] in a request of its own,
+     * cut to fit the window ([CompactionAsk.fitted]); cut further when the
+     * provider still finds it too long, and asked once more if the reply held
+     * no summary.
+     */
+    private suspend fun askWithTranscript(
+        span: List<Message>,
+        endpoint: Endpoint,
+        model: ModelSpec,
+        previous: ConversationDigest?,
+        focus: String?,
+    ): Pair<ConversationDigest?, String?> {
+        val system = SystemPrompt.compactionInstruction(focus)
+        val header = "## Conversation span to digest (turns ${span.first().seq}–${span.last().seq})\n\n"
+        val previousBlock = previous?.let { "\n\n## Previous digest, to merge into\n\n${it.render()}" }.orEmpty()
+        val output = CompactionAsk.OUTPUT_TOKENS.coerceAtMost(model.maxOutputTokens)
+        val around = NativeCore.estimateTokens(system) + NativeCore.estimateTokens(header + previousBlock) +
+            NativeCore.estimateTokens(CompactionAsk.NUDGE)
+        // The input the agent's own requests may carry, not the window less
+        // this reply: Kiro's window is its input limit plus the whole output
+        // cap, and an input past that limit is refused whatever the reply asks.
+        var room = model.contextWindow - model.maxOutputTokens - settings.safetyReserveTokens - around
+        var level = 0
+        var shrinks = 0
+        var nudge: String? = null
+        var failure = "the model answered without the summary"
+        while (true) {
+            val fitted = CompactionAsk.fitted(span, room, from = level)
+                ?: return null to "not even the latest message of the span fits the window"
+            level = fitted.level
+            val request = CompletionRequest(
+                endpoint = endpoint,
+                model = model,
+                apiKey = null, // resolved by LlmClient
+                system = system,
+                messages = listOf(
+                    Message(
+                        id = "compaction-input",
+                        sessionId = "compaction",
+                        role = Role.USER,
+                        content = listOf(Block.Text(header + fitted.text + previousBlock + nudge?.let { "\n\n$it" }.orEmpty())),
                     ),
                 ),
-            ),
-            tools = listOf(tool),
-            // Reasoning off: this is a structured extraction task, and a
-            // reasoning pass over a 600k-token transcript costs more than the
-            // compaction saves.
-            thinking = ThinkingMode.OFF,
-            maxOutputTokens = DIGEST_OUTPUT_TOKENS.coerceAtMost(model.maxOutputTokens),
-            temperature = 0.0,
-            stream = true,
-            toolChoice = CompletionRequest.ToolChoice.Required(DIGEST_TOOL),
-        )
+                tools = emptyList(),
+                thinking = ThinkingMode.OFF,
+                reasoningEffort = CompactionAsk.quickest(model),
+                maxOutputTokens = output,
+                stream = true,
+            )
+            val reply = send(request)
+            val error = reply.error
+            when {
+                // The estimate ran low, or Kiro measures the body in bytes:
+                // the next level down, and past the last a smaller room.
+                error != null && reply.tooLong && level < CompactionAsk.LEVELS.size -> level++
+                error != null && reply.tooLong && shrinks < MAX_SHRINKS -> {
+                    shrinks++
+                    room = room * 7 / 10
+                }
+                error != null -> return null to error
+                else -> {
+                    CompactionAsk.parse(reply.text)?.let { return it to null }
+                    if (reply.cutOff) failure = "the summary was cut off at the output limit"
+                    if (nudge != null) return null to failure
+                    nudge = if (reply.cutOff) CompactionAsk.CUT_NUDGE else CompactionAsk.NUDGE
+                }
+            }
+        }
+    }
 
-        val arguments = StringBuilder()
-        var failed: String? = null
+    /** What a summary request brought back. */
+    private class Reply(val text: String, val cutOff: Boolean, val error: String?, val tooLong: Boolean)
 
+    /**
+     * Send [request] and keep the text of the reply. Calls are not read: no
+     * tool is asked for, and a model that calls one anyway gets the nudge.
+     */
+    private suspend fun send(request: CompletionRequest): Reply {
+        val text = StringBuilder()
+        var finish: String? = null
+        var failed: LlmError? = null
+        var thrown: String? = null
         try {
             llm.stream(request).collect { event ->
                 when (event) {
-                    is StreamEvent.ToolCallArgsDelta -> arguments.append(event.fragment)
-                    is StreamEvent.Failed -> failed = event.error.message
+                    is StreamEvent.TextDelta -> text.append(event.text)
+                    is StreamEvent.Done -> finish = event.finishReason
+                    is StreamEvent.Failed -> failed = event.error
                     else -> Unit
                 }
             }
         } catch (cancelled: CancellationException) {
-            // Stopped is not failed. runCatching took a stop for the model's
-            // failure, and a failure is what the emergency trim follows.
+            // Stopped is not failed: the emergency trim follows a failure.
             throw cancelled
         } catch (t: Throwable) {
-            failed = t.message ?: t.javaClass.simpleName
+            thrown = t.message ?: t.javaClass.simpleName
         }
-
-        failed?.let { reason ->
-            Log.w(TAG, "digest request failed: $reason")
-            return null to reason
-        }
-        if (arguments.isBlank()) {
-            Log.w(TAG, "digest request produced no tool arguments")
-            return null to "the model answered without the summary"
-        }
-
-        var parseError: String? = null
-        val digest = runCatching {
-            json.decodeFromString(ConversationDigest.serializer(), arguments.toString())
-        }.getOrElse { error ->
-            Log.w(TAG, "digest did not parse: ${error.message}")
-            parseError = error.message
-            // One salvage attempt: a model that emitted a fenced block or a
-            // trailing comma still produced usable content.
-            val salvaged = arguments.toString()
-                .removePrefix("```json").removePrefix("```").removeSuffix("```")
-                .trim()
-                .replace(Regex(",\\s*([}\\]])"), "$1")
-            runCatching {
-                json.decodeFromString(ConversationDigest.serializer(), salvaged)
-            }.getOrNull()
-        }
-        return digest to if (digest == null) "the summary did not parse: $parseError" else null
+        val error = failed?.message ?: thrown
+        error?.let { Log.w(TAG, "summary request failed: $it") }
+        return Reply(
+            text = text.toString(),
+            cutOff = StopReasons.outputLimit(finish),
+            error = error,
+            tooLong = failed?.kind == LlmError.Kind.CONTEXT_OVERFLOW,
+        )
     }
 
-    /**
-     * Flatten the span for the summarising request.
-     *
-     * Tool *results* are heavily clipped: a 40k-token build log contributes
-     * nothing to a digest beyond "the build failed on X", and including it in
-     * full would make the compaction request itself overflow the window — the
-     * exact problem being solved. Tool *arguments* are kept, because which file
-     * was edited and what command was run is precisely the durable information.
-     */
-    private fun renderTranscript(span: List<Message>): String = buildString {
-        for (message in span) {
-            append("### turn ").append(message.seq).append(" — ")
-            appendLine(message.role.name.lowercase())
-            for (block in message.content) {
-                when (block) {
-                    is Block.Text -> appendLine(block.text)
-
-                    is Block.Thinking -> {
-                        // Reasoning rarely survives usefully into a digest, and
-                        // it is often the largest part of a turn.
-                        if (block.text.length < 400) appendLine("(reasoning) ${block.text}")
-                    }
-
-                    is Block.ToolUse ->
-                        appendLine("CALL ${block.name} ${block.argumentsJson.take(TOOL_ARG_CLIP)}")
-
-                    is Block.ToolResult -> {
-                        val status = if (block.isError) "ERROR" else "OK"
-                        appendLine(
-                            "RESULT ${block.name} [$status] " +
-                                block.content.take(TOOL_RESULT_CLIP).replace("\n", " ⏎ "),
-                        )
-                    }
-
-                    is Block.Image -> appendLine("(image attached)")
-
-                    is Block.Notice -> when (block.kind) {
-                        Block.Notice.OUTPUT_LIMIT -> appendLine("(this reply was cut off at the output limit)")
-                        Block.Notice.FAILED -> appendLine("(this request failed: ${block.text.orEmpty().take(TOOL_ARG_CLIP)})")
-                        else -> Unit
-                    }
-                }
-            }
-            appendLine()
-        }
-    }
+    /** Each entry with the turn it was learned by, where the model gave none. */
+    private fun ConversationDigest.stamped(seq: Long): ConversationDigest = copy(
+        decisions = decisions.map { if (it.atSeq == 0L) it.copy(atSeq = seq) else it },
+        fileMap = fileMap.map { if (it.lastReadSeq == 0L) it.copy(lastReadSeq = seq) else it },
+        edits = edits.map { if (it.atSeq == 0L) it.copy(atSeq = seq) else it },
+        commands = commands.map { if (it.atSeq == 0L) it.copy(atSeq = seq) else it },
+        failedApproaches = failedApproaches.map { if (it.atSeq == 0L) it.copy(atSeq = seq) else it },
+    )
 
     /**
      * Last resort when the digest request itself cannot succeed — the endpoint
@@ -476,7 +491,6 @@ class Compactor(
 
     companion object {
         private const val TAG = "Compactor"
-        private const val DIGEST_TOOL = "record_digest"
 
         /** [Result.Skipped]'s reason when the summary would give back less than asked. */
         const val NOT_SHORTER = "the summary is no shorter than what it replaces"
@@ -490,10 +504,7 @@ class Compactor(
         const val MIN_MANUAL_TOKENS = 2_000
         const val MIN_MANUAL_GAIN = 500
 
-        /** Generous: a thorough digest of 200 turns is not short. */
-        private const val DIGEST_OUTPUT_TOKENS = 8_000
-
-        private const val TOOL_ARG_CLIP = 400
-        private const val TOOL_RESULT_CLIP = 600
+        /** Times a transcript past the last level is cut by a third more when still refused as too long. */
+        private const val MAX_SHRINKS = 2
     }
 }

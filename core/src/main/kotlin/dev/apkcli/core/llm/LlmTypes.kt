@@ -50,7 +50,11 @@ data class CompletionRequest(
     sealed interface ToolChoice {
         data object Auto : ToolChoice
         data object None : ToolChoice
-        /** Force exactly this tool. Used by the compaction pass. */
+        /**
+         * Force exactly this tool. Not every model takes it: Kiro has no such
+         * field, and Claude Opus 5.5 and Sonnet 5.5 refuse it with a 400, so
+         * the compaction pass no longer uses it (CompactionAsk).
+         */
         data class Required(val name: String) : ToolChoice
     }
 }

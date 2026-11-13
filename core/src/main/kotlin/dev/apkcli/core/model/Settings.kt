@@ -593,7 +593,10 @@ data class AppSettings(
 
 @Serializable
 data class ContextSettings(
-    /** Fraction of the prompt budget at which background pre-summarising starts. */
+    /**
+     * Fraction of the prompt budget at which a summary could be prepared in
+     * the background. Nothing reads it yet ([dev.apkcli.core.agent.ContextBudget.shouldPrepareEarly]).
+     */
     val softThreshold: Float = 0.75f,
     /** Fraction at which compaction is forced before the next request. */
     val hardThreshold: Float = 0.90f,

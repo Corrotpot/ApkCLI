@@ -3,6 +3,7 @@ package dev.apkcli.core.agent
 import dev.apkcli.core.llm.ToolDeclaration
 import dev.apkcli.core.model.AgentDefinition
 import dev.apkcli.core.model.ApprovalRule
+import dev.apkcli.core.model.ConversationDigest
 import dev.apkcli.core.model.ModelSpec
 import dev.apkcli.core.agent.tools.ShellHints
 import dev.apkcli.core.model.ThinkingMode
@@ -688,10 +689,30 @@ object SystemPrompt {
     }
 
     /**
-     * Instruction for the compaction pass. Sent as a one-off request, not as
-     * part of the standing prompt.
+     * The summary request put at the end of the conversation itself
+     * ([CompactionAsk.within]): the model writes it with everything it worked
+     * with still in front of it, then the work goes on from the same place.
      */
-    fun compactionInstruction(focus: String? = null): String = compactionBase() + focus?.trim()?.takeIf { it.isNotEmpty() }?.let {
+    fun compactionRequest(): String = """
+        # Compaction
+
+        Stop the task for this one reply: do not call tools and do not go on with the work.
+
+        The conversation is being compacted. Its older messages leave the context window
+        and your summary takes their place; the latest messages stay as they are, and the
+        work resumes from where it is right after this reply.
+    """.trimIndent() + "\n\n" + compactionRules()
+
+    /**
+     * The system prompt of a summary asked with a transcript of the span, in a
+     * request of its own ([Compactor]'s way when the conversation does not fit
+     * a request any more, and /compact's).
+     */
+    fun compactionInstruction(focus: String? = null): String = """
+        You summarise a long coding session that no longer fits in the context window.
+        The user message holds a transcript of the part that leaves the window, and the
+        session's digest so far when there is one; the latest messages stay as they are.
+    """.trimIndent() + "\n\n" + compactionRules() + focus?.trim()?.takeIf { it.isNotEmpty() }?.let {
         "\n\n" + """
             The user asked for this compaction and asked to keep this in detail: "$it". Put
             every detail of the span that bears on it into `keptByRequest`, complete and exact:
@@ -699,33 +720,36 @@ object SystemPrompt {
         """.trimIndent()
     }.orEmpty()
 
-    private fun compactionBase(): String = """
-        You are compacting a long coding session that no longer fits in the context
-        window. Produce a digest of the conversation span shown, merged with the previous
-        digest if one is present.
+    /**
+     * What both ways ask for. Only what the digest does not have yet: the app
+     * merges it ([ConversationDigest.mergedWith]), so the reply stays short and
+     * quick to write, and a long session's summary is not written out again on
+     * every compaction until it no longer fits in a reply.
+     */
+    private fun compactionRules(): String = """
+        Reply with one JSON object in the format below and nothing else, no prose around it.
 
-        This digest will be the only trace of those turns. Everything the next turns need
-        in order to continue without repeating work has to be in it.
+        A session digest already in the conversation, or given with it, stays: the app merges
+        your object into it. Write only what it does not say yet, or what newer messages
+        changed. Give `objective`, `currentState`, `openThreads` and `nextSteps` whole, as
+        they stand now: yours replace the digest's.
 
         What matters most, in order:
 
-        1. `failedApproaches` — anything tried that did not work, and why. Omitting these
-           causes the single most expensive failure mode: the agent confidently retries
+        1. `failedApproaches`: anything tried that did not work, and why. Leaving one out
+           causes the costliest failure of a long session: the agent confidently retries
            something already known to be a dead end.
-        2. `decisions` — choices already made, with the reason, so they are not relitigated.
-        3. `fileMap` — what is now known about which files, so they need not be re-read.
-        4. `constraints` and `userPreferences` — anything the user asked for or forbade.
-        5. `verbatimPins` — short exact strings that must not be paraphrased: error
+        2. `decisions`: choices already made, with the reason, so they are not reopened.
+        3. `fileMap`: what is now known about each file, so it need not be read again.
+        4. `constraints` and `userPreferences`: anything the user asked for or forbade.
+        5. `verbatimPins`: short exact strings that must not be paraphrased: error
            messages, API signatures, literals the user supplied.
 
-        Be specific. "Fixed some bugs in the parser" is useless; "fixed off-by-one in
-        Lexer.readString at src/lex.rs:142, string literals were dropping the final
-        character" is what the next turn can act on. Use real paths and real names.
+        Be specific and terse, one line an entry, with real paths and real names. "Fixed
+        some bugs in the parser" is useless; "fixed an off-by-one in Lexer.readString at
+        src/lex.rs:142, string literals lost their last character" is what the next turn
+        can act on.
 
-        Do not summarise the summary. Carry forward prior digest entries that are still
-        true, verbatim, rather than compressing them again — repeated lossy passes are
-        how a long session loses its history.
-
-        Return only the structured object.
-    """.trimIndent()
+        The format, as JSON Schema:
+    """.trimIndent() + "\n\n" + ConversationDigest.REQUEST_SCHEMA
 }

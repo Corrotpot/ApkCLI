@@ -174,8 +174,35 @@ message, so it is left out of the messages' count. Both used to be counted
 twice: the meter read high, compaction came early, and the estimator was
 calibrated against a larger prompt than the one sent.
 
-Soft threshold (75%) starts a digest in the background while the user reads the
-previous answer. Hard threshold (90%) compacts before the next request.
+At 90% of the budget (the hard threshold) the window is compacted before the
+next request. The soft threshold (75%) is in the settings, but nothing
+summarises in the background yet: the user waits for the summary, which is one
+reason it is asked to be short.
+
+### The summary is asked where the work is
+
+The summary is asked as OpenCode asks it: at the end of the request the agent
+was about to send, unchanged, with one more user message
+(`CompactionAsk.within`). The model writes it from everything it worked with,
+tool output whole, and the work goes on from the same place right after, since
+the latest turns stay as they are. A provider that caches prompts by prefix
+reads that prefix back instead of again; Kiro does so by itself.
+
+The answer is one JSON object in the reply's text. It used to be a forced tool
+call at `temperature: 0`, and each of those is refused on current models: Kiro
+has no field to force a call, Claude Opus 5.5 and Sonnet 5.5 refuse forced tool
+use with a 400, and Claude from Opus 4.7 and Sonnet 5 and OpenAI's reasoning
+models refuse a temperature. Every refusal ended in the emergency trim, which
+moves the old turns to the archive with a placeholder instead of a summary. A
+reply with no object is now asked once more, and one cut off at the output
+limit is asked for a shorter object.
+
+When the conversation is too long to ask within (the provider has just refused
+it, or it would not leave room for the reply), a transcript of the span goes in
+a request of its own, cut level by level until it fits (`CompactionAsk.fitted`):
+tool results to their first and last 1 000 characters, then 600, 200 and
+nothing, and past that the oldest messages are left out. A refusal as too long
+moves it a level down. /compact asks this way too.
 
 ### Compaction produces a schema, not a paragraph
 
@@ -184,14 +211,16 @@ which file held the bug, which approach already failed, what the user said not
 to do. The agent then re-explores dead ends, costing more than the summary
 saved.
 
-So `ConversationDigest` is a structured object the model fills in through a
-**forced tool call**. The highest-value field is `failedApproaches` — without it
-a compacted agent confidently retries a known dead end, which is the single most
-expensive failure mode in a long session.
+So `ConversationDigest` is a structured object the model fills in. The
+highest-value field is `failedApproaches` — without it a compacted agent
+confidently retries a known dead end, which is the single most expensive
+failure mode in a long session.
 
-Compaction is **cumulative**: each pass merges into the previous digest rather
-than re-summarising from scratch. Repeated lossy passes over the same text is
-how detail evaporates.
+Compaction is **cumulative**: the model writes only what the digest does not
+have yet, and `ConversationDigest.mergedWith` merges it in, each list capped.
+Repeated lossy passes over the same text is how detail evaporates. The model
+was once asked to write the whole digest out again instead, and that reply grew
+with the session until it no longer fitted the output limit.
 
 ### Nothing is deleted
 
