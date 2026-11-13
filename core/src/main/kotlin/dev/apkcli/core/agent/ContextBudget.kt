@@ -60,13 +60,14 @@ class ContextBudget(private val settings: ContextSettings) {
         val remaining: Int get() = (promptBudget - promptTokens).coerceAtLeast(0)
 
         /**
-         * The part of the prompt that compaction can actually shrink.
+         * The part of the prompt that compaction cannot shrink.
          *
-         * The system prompt and tool schemas are fixed overhead — if they alone
-         * exceed the window, compaction cannot help and the real problem is the
-         * model choice.
+         * The system prompt with the project's instructions and memory, and
+         * the tool schemas, are fixed overhead — if they alone exceed the
+         * window, compaction cannot help and the real problem is the model
+         * choice.
          */
-        val fixedOverhead: Int get() = systemTokens + toolSchemaTokens
+        val fixedOverhead: Int get() = systemTokens + memoryTokens + toolSchemaTokens
 
         fun describe(): String = buildString {
             append("${promptTokens / 1000}k/${promptBudget / 1000}k")
@@ -74,6 +75,16 @@ class ContextBudget(private val settings: ContextSettings) {
         }
     }
 
+    /**
+     * What the next request holds, part by part, each counted once.
+     *
+     * @param memory the project's instructions and remembered facts, which
+     *   [systemPrompt] carries: counted on their own row and taken out of the
+     *   system prompt's. Both rows used to hold them, so the meter read high
+     *   by all of it and compaction came early.
+     * @param messages the window and any recalled history, without the
+     *   digest's message: [digest] is that.
+     */
     fun account(
         systemPrompt: String,
         toolSchemaTokens: Int,
@@ -82,16 +93,19 @@ class ContextBudget(private val settings: ContextSettings) {
         messages: List<Message>,
         model: ModelSpec,
         maxOutputTokens: Int,
-    ): Accounting = Accounting(
-        systemTokens = NativeCore.estimateTokens(systemPrompt),
-        toolSchemaTokens = toolSchemaTokens,
-        digestTokens = digest?.let { NativeCore.estimateTokens(it) } ?: 0,
-        memoryTokens = memory?.let { NativeCore.estimateTokens(it) } ?: 0,
-        liveMessageTokens = messages.sumOf { it.tokens },
-        reserveTokens = settings.safetyReserveTokens,
-        maxOutputTokens = maxOutputTokens.coerceAtMost(model.maxOutputTokens),
-        contextWindow = model.contextWindow,
-    )
+    ): Accounting {
+        val memoryTokens = memory?.let { NativeCore.estimateTokens(it) } ?: 0
+        return Accounting(
+            systemTokens = (NativeCore.estimateTokens(systemPrompt) - memoryTokens).coerceAtLeast(0),
+            toolSchemaTokens = toolSchemaTokens,
+            digestTokens = digest?.let { NativeCore.estimateTokens(it) } ?: 0,
+            memoryTokens = memoryTokens,
+            liveMessageTokens = messages.sumOf { it.tokens },
+            reserveTokens = settings.safetyReserveTokens,
+            maxOutputTokens = maxOutputTokens.coerceAtMost(model.maxOutputTokens),
+            contextWindow = model.contextWindow,
+        )
+    }
 
     /** Compact before the next request. */
     fun needsCompaction(accounting: Accounting): Boolean =
@@ -110,19 +124,21 @@ class ContextBudget(private val settings: ContextSettings) {
     /**
      * Unrecoverable: fixed overhead alone leaves no room to work.
      *
-     * Happens when a small-window model is paired with the full tool set. The
-     * honest response is to tell the user to pick a bigger model or a narrower
-     * agent, not to silently drop tools.
+     * Happens when a small-window model is paired with the full tool set, or
+     * with a long instruction file. The honest response is to tell the user
+     * to pick a bigger model or carry less, not to silently drop tools; the
+     * agents a user can pick all declare the same tools, so a narrower one is
+     * not on offer.
      */
     fun isHopeless(accounting: Accounting): Boolean =
         accounting.fixedOverhead > accounting.promptBudget * 0.7f
 
     fun hopelessExplanation(accounting: Accounting): String =
-        "The system prompt and tool definitions alone need " +
-            "${accounting.fixedOverhead} tokens of a ${accounting.promptBudget} token " +
-            "budget, leaving no room for a conversation. Either choose a model with a " +
-            "larger context window, or switch to an agent with fewer tools (the Explorer " +
-            "agent declares about a third as many)."
+        "The system prompt, the project's instructions and memory, and the tool " +
+            "definitions alone need ${accounting.fixedOverhead} tokens of a " +
+            "${accounting.promptBudget} token budget, leaving no room for a conversation. " +
+            "Choose a model with a larger context window, or shorten the project's " +
+            "instruction file and the remembered facts."
 
     /**
      * What to archive and what to keep.

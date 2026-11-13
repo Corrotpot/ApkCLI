@@ -168,6 +168,12 @@ project memory, live messages — because the breakdown is what tells you what t
 do. "60% used" prompts a shrug; "60% used, of which 40% is one build log" prompts
 an action. The breakdown is in the UI for the same reason.
 
+Each part is counted once. The project memory is inside the system prompt, so
+it is taken out of the system prompt's count; the digest goes to the model as a
+message, so it is left out of the messages' count. Both used to be counted
+twice: the meter read high, compaction came early, and the estimator was
+calibrated against a larger prompt than the one sent.
+
 Soft threshold (75%) starts a digest in the background while the user reads the
 previous answer. Hard threshold (90%) compacts before the next request.
 

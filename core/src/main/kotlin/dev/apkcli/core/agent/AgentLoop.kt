@@ -465,33 +465,30 @@ class AgentLoop(
 
         // Prompt order: digest, recalled history, live window. The digest is
         // pinned first so it is never what gets dropped.
-        val prefix = buildList {
-            digest?.let { add(compactor.asMessage(config.sessionId, it)) }
-            if (latestUserText != null) {
-                val provisional = budget.account(
-                    systemPrompt, toolSchemaTokens, digest?.render(), memory,
-                    live, config.model, config.model.maxOutputTokens,
-                )
-                compactor.recall(
-                    config.sessionId,
-                    latestUserText,
-                    budget.recallBudget(provisional),
-                )?.let { add(it) }
-            }
+        val digestMessage = digest?.let { compactor.asMessage(config.sessionId, it) }
+        val recalled = latestUserText?.let { query ->
+            val provisional = budget.account(
+                systemPrompt, toolSchemaTokens, digest?.render(), memory,
+                live, config.model, config.model.maxOutputTokens,
+            )
+            compactor.recall(config.sessionId, query, budget.recallBudget(provisional))
         }
 
-        val messages = prefix + live
         return Prepared(
             systemPrompt = systemPrompt,
             systemStableLength = parts.stableLength,
-            messages = messages,
+            messages = listOfNotNull(digestMessage, recalled) + live,
             digest = digest,
+            // The digest is counted as itself, so not again among the
+            // messages: it was, and the meter read high by its size, the
+            // window compacted early, and the estimator was calibrated
+            // against a prompt larger than the one sent.
             accounting = budget.account(
                 systemPrompt = systemPrompt,
                 toolSchemaTokens = toolSchemaTokens,
                 digest = digest?.render(),
                 memory = memory,
-                messages = messages,
+                messages = listOfNotNull(recalled) + live,
                 model = config.model,
                 maxOutputTokens = config.model.maxOutputTokens,
             ),
