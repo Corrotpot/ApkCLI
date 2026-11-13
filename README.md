@@ -36,7 +36,7 @@ edits files, runs commands, and the context window is managed.
 | Exec policy, 3-directory environment, bootstrap, `LD_PRELOAD` shim | complete |
 | Load governor — pools, affinity, thermal policy | complete |
 | LLM layer — OpenAI-compatible, Anthropic, Kiro (Amazon Q, AWS event-stream); SSE, retry | complete; Kiro run against a live account on the emulator |
-| Agent — system prompt, 38 tools (41 on power), loop, subagents, approvals | complete |
+| Agent — system prompt, 40 tools (43 on power), loop, subagents, approvals | complete |
 | Packages — Termux repository, dependency resolution, relocation (power) | complete |
 | Context — budget, compaction, digest, FTS recall, project memory | complete |
 | UI — the design prototype ported 1:1: black theme generated from `design/tokens.json`, home, projects, workspace, settings | complete |

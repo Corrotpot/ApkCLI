@@ -416,6 +416,14 @@ object SystemPrompt {
                 appendLine("- **The web**: `web_fetch` for a known URL. Pass `render: true` only when a")
                 appendLine("  first attempt comes back as an empty shell — JavaScript rendering costs")
                 appendLine("  seconds and battery.")
+                if ("http_request" in names) {
+                    appendLine("  `http_request` for an API or a server you started: any method, headers")
+                    appendLine("  and body, and the status as it is.")
+                }
+            }
+            if ("sqlite_query" in names) {
+                appendLine("- **A database file**: `sqlite_query` reads an SQLite file in the project with")
+                appendLine("  SQL, read-only; no sqlite3 needed.")
             }
             if ("task_list" in names) {
                 appendLine("- **Multi-step work**: keep `task_list` current. It is what the user sees")

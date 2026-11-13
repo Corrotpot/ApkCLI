@@ -368,7 +368,7 @@
     <string name="rule_delete">Удаление файлов</string>
     <string name="rule_delete_sub">Удаление, перемещение и откат правок</string>
     <string name="rule_commands">Команды</string>
-    <string name="rule_commands_sub">Команды в терминале, сборка и тесты</string>
+    <string name="rule_commands_sub">Команды в терминале, сборка, тесты и HTTP-запросы</string>
     <string name="rule_background">Фоновые процессы</string>
     <string name="rule_background_sub">Запуск и остановка долгих команд</string>
     <string name="rule_packages">Пакеты</string>

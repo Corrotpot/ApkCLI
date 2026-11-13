@@ -392,7 +392,7 @@ enum class ApprovalRule(val tools: Set<String>, val label: String) {
     DELETE(setOf("fs_delete", "fs_move", "revert_edit"), "deleting and moving files, reverting edits"),
 
     @SerialName("commands")
-    COMMANDS(setOf("sh_exec", "build_run", "test_run"), "running commands, builds and tests"),
+    COMMANDS(setOf("sh_exec", "build_run", "test_run", "http_request"), "running commands, builds, tests and HTTP requests"),
 
     @SerialName("background")
     BACKGROUND(setOf("sh_background", "sh_job_kill"), "starting and stopping background jobs"),

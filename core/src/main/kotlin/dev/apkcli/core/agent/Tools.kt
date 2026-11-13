@@ -16,6 +16,7 @@ import dev.apkcli.core.agent.tools.FsReadTool
 import dev.apkcli.core.agent.tools.FsStatTool
 import dev.apkcli.core.agent.tools.FsWriteTool
 import dev.apkcli.core.agent.tools.GrepTool
+import dev.apkcli.core.agent.tools.HttpRequestTool
 import dev.apkcli.core.agent.tools.MemoryForgetTool
 import dev.apkcli.core.agent.tools.MemoryReadTool
 import dev.apkcli.core.agent.tools.MemoryWriteTool
@@ -30,6 +31,7 @@ import dev.apkcli.core.agent.tools.ShExecTool
 import dev.apkcli.core.agent.tools.ShJobKillTool
 import dev.apkcli.core.agent.tools.ShJobOutputTool
 import dev.apkcli.core.agent.tools.ShJobsTool
+import dev.apkcli.core.agent.tools.SqliteQueryTool
 import dev.apkcli.core.agent.tools.SubagentDispatchTool
 import dev.apkcli.core.agent.tools.SymbolSearchTool
 import dev.apkcli.core.agent.tools.TaskListTool
@@ -76,6 +78,7 @@ object Tools {
             add(FsListTool())
             add(ProjectTreeTool())
             add(FsStatTool())
+            add(SqliteQueryTool())
 
             // --- editing ----------------------------------------------------
             add(FsEditTool())
@@ -114,6 +117,7 @@ object Tools {
 
             // --- the web ----------------------------------------------------
             add(WebFetchTool())
+            add(HttpRequestTool())
             options.search?.let { add(WebSearchTool(it)) }
 
             // --- packages (power build only) --------------------------------
@@ -134,7 +138,7 @@ object Tools {
      */
     val readOnlyToolNames: Set<String> = setOf(
         "fs_read", "grep", "fs_glob", "symbol_search", "outline",
-        "fs_list", "project_tree", "fs_stat",
+        "fs_list", "project_tree", "fs_stat", "sqlite_query",
         "conversation_search", "conversation_read", "memory_read",
         "env_info", "web_fetch", "pkg_search",
         // Reading what a terminal printed changes nothing, and an investigation

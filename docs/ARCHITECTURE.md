@@ -530,11 +530,18 @@ append results <- execute tools <- tool calls?
 
 ## Tools
 
-Thirty-eight tools (forty-one on the power build, with `pkg_install`,
+Forty tools (forty-three on the power build, with `pkg_install`,
 `pkg_search` and `pkg_remove`), invoked through one path. `ToolRegistry.execute` owns permission
 checks, approval prompts, timeouts, error shaping, and spilling oversized output
 to the blob store — because a tool that forgot one of those would be a security
 or budget hole.
+
+Two of them need nothing installed, so they work on the Play build too:
+`http_request` sends one request with any method, headers and body, does not
+follow redirects, and returns the status and headers as they are (it is in the
+Commands rule: a POST changes things); `sqlite_query` runs SQL on a database
+file in the project with Android's own SQLite, opened read-only, and refuses
+`ATTACH`, which would open a file the path check never saw.
 
 It never throws. An exception would abort the turn, discard the other calls in
 the batch, and leave the model with no way to recover. A failed call that

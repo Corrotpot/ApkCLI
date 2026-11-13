@@ -367,7 +367,7 @@
     <string name="rule_delete">Deleting files</string>
     <string name="rule_delete_sub">Deleting, moving and reverting edits</string>
     <string name="rule_commands">Commands</string>
-    <string name="rule_commands_sub">Terminal commands, builds and tests</string>
+    <string name="rule_commands_sub">Terminal commands, builds, tests and HTTP requests</string>
     <string name="rule_background">Background jobs</string>
     <string name="rule_background_sub">Starting and stopping long commands</string>
     <string name="rule_packages">Packages</string>
