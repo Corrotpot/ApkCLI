@@ -915,6 +915,10 @@ fun ComposerBox(
     command: ChatCommands.Command? = null,
     /** [command] can run now. */
     commandEnabled: Boolean = false,
+    /** The words are a `!` line: send runs it in the project's shell, under the terminal glyph. */
+    shell: Boolean = false,
+    /** [shell] can run now. */
+    shellEnabled: Boolean = false,
     /** While [busy], a message can still go: the turn takes it at its next step. */
     canQueue: Boolean = false,
     modifier: Modifier = Modifier,
@@ -979,7 +983,7 @@ fun ComposerBox(
                     // Words typed while the agent works can go now, to be read
                     // at its next step; stop stays beside them, never replaced.
                     val hasWords = value.isNotBlank() || attachments.isNotEmpty()
-                    if (canQueue && hasWords && command == null) {
+                    if (canQueue && hasWords && command == null && !shell) {
                         val ready = preparingAttachments == 0
                         SendButton(enabled = ready, description = stringResource(R.string.a11y_queue_message), onClick = onSend) {
                             Icon(
@@ -992,6 +996,16 @@ fun ComposerBox(
                     }
                     SendButton(enabled = true, description = stringResource(R.string.a11y_stop_turn), onClick = onStop) {
                         Box(Modifier.size(10.dp).background(Design.Colors.OnPrimary, RoundedCornerShape(2.dp)))
+                    }
+                } else if (shell) {
+                    val canRun = enabled && shellEnabled
+                    SendButton(enabled = canRun, description = stringResource(R.string.shell_run), onClick = onSend) {
+                        Icon(
+                            Codicons.Terminal,
+                            null,
+                            tint = if (canRun) Design.Colors.OnPrimary else Design.Colors.TextDisabled,
+                            modifier = Modifier.size(Design.Size.IconSmall),
+                        )
                     }
                 } else if (command != null) {
                     val canRun = enabled && commandEnabled

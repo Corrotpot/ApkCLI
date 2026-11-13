@@ -197,9 +197,12 @@ class AgentLoop(
                 turnUserSeqs += user.seq
                 emit(AgentEvent.UserMessage(user))
 
-                // The first user message names the session. Done here rather
-                // than with a model call: free, instant, and good enough.
-                if (user.seq == 0L) {
+                // The first request names the session: the first message, or
+                // the first after commands the user ran (`!`, UserShell), which
+                // name nothing; a session the store cannot read keeps its name.
+                // Done here rather than with a model call: free, instant, and
+                // good enough.
+                if (user.seq == 0L || store.getSession(config.sessionId)?.title?.isBlank() == true) {
                     val title = userText.ifBlank { attachments.firstNotNullOfOrNull { it.label } ?: "Image" }
                     store.updateSession(config.sessionId, title = deriveTitle(title))
                 }

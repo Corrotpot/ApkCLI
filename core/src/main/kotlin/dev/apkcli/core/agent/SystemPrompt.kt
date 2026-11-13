@@ -353,6 +353,11 @@ object SystemPrompt {
         Large outputs are truncated and the full text stored. When a result says it was
         spilled to a blob, use `conversation_read` with that id to page through it rather
         than re-running the command with narrower arguments.
+
+        A user message that starts with `!` and holds a `<user_shell>` block is a command
+        the user ran in the project's shell themselves: what it printed, and how it ended
+        (`exit`, `ms`; `timed_out` or `stopped` when it did not finish). It is context, not
+        a request and not one of your calls. Read it rather than running it again.
     """.trimIndent()
 
     /**

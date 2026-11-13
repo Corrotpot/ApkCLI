@@ -30,8 +30,10 @@ import dev.apkcli.core.model.MessageStatus
 import dev.apkcli.core.model.Role
 import dev.apkcli.core.model.SubagentRun
 import dev.apkcli.core.model.ToolCallStatus
+import dev.apkcli.core.model.UserShell
 import dev.apkcli.core.projects.ProjectImport
 import dev.apkcli.core.runtime.TerminalBuffer
+import dev.apkcli.core.sched.TaskClass
 import dev.apkcli.core.service.AgentService
 import dev.apkcli.core.service.BatteryExemption
 import dev.apkcli.core.store.ChangeLedger
@@ -98,6 +100,17 @@ class ChatViewModel(
         val startedAt: Long = System.currentTimeMillis(),
         /** The model writing it, for the line under a reply stopped midway. */
         val model: String? = null,
+    )
+
+    /**
+     * A `!` line running in the project's shell ([runShell]). [id] is the one
+     * its stored message will have; [rows] are its terminal's last lines.
+     */
+    data class ShellRun(
+        val id: String,
+        val command: String,
+        val startedAt: Long,
+        val rows: List<TerminalBuffer.Row> = emptyList(),
     )
 
     data class LiveToolCall(
@@ -299,6 +312,8 @@ class ChatViewModel(
          * go after what is typed there, the way a paste does.
          */
         val sharedText: String? = null,
+        /** A `!` line running in the project's shell; the composer is [busy] meanwhile. */
+        val shellRun: ShellRun? = null,
         /** Messages whose reasoning was open when they finished streaming; they land open. */
         val openThinking: Set<String> = emptySet(),
         /** Images to send with the next message. */
@@ -881,6 +896,11 @@ class ChatViewModel(
             if (!runCommand(command, typed.args)) _state.update { it.copy(returnedDraft = text) }
             return
         }
+        // A `!` line runs in the project's shell, and the model is not asked.
+        ChatCommands.shell(trimmed)?.let { line ->
+            if (!runShell(line)) _state.update { it.copy(returnedDraft = text) }
+            return
+        }
         val snapshot = _state.value
         val attached = snapshot.attachments
         if (trimmed.isEmpty() && attached.isEmpty()) return
@@ -1167,8 +1187,100 @@ class ChatViewModel(
         // Resolve anything the agent is blocked on, or the cancelled coroutine
         // never unwinds past the awaiting dialog.
         approvalAnswer?.complete(false)
-        _state.update { it.copy(busy = false, turnRunning = false, approval = null, inFlightTools = emptyMap()) }
-        AgentService.finish(appContext)
+        // A `!` line stopped still keeps what it printed (runShell), and is
+        // busy until then: a message sent meanwhile would land before it.
+        val shellEnding = _state.value.shellRun != null
+        _state.update { it.copy(busy = shellEnding, turnRunning = false, approval = null, inFlightTools = emptyMap()) }
+        if (!shellEnding) AgentService.finish(appContext)
+    }
+
+    /**
+     * `!command`: run in the project's shell the way the agent's commands
+     * run, on a terminal, and kept in the chat as the user's message
+     * ([UserShell]). The agent reads it with the next message; no model is
+     * asked anything now. In [turnJob], so the stop button stops it, and what
+     * its screen showed then is kept, marked as stopped. False, and nothing
+     * run, while the agent or another command is working.
+     */
+    fun runShell(command: String): Boolean {
+        val snapshot = _state.value
+        val line = command.trim()
+        if (line.isEmpty() || snapshot.busy || snapshot.starting) return false
+        val sessionId = snapshot.sessionId ?: return false
+        val workspace = snapshot.workspace ?: return false
+        val id = ConversationStore.newId("m")
+        val startedAt = System.currentTimeMillis()
+        followBottom = true
+        _state.update { it.copy(busy = true, error = null, shellRun = ShellRun(id, line, startedAt)) }
+        AgentService.start(appContext, "Running: ${line.take(80)}")
+
+        turnJob = viewModelScope.launch {
+            var run: UserShell.Run? = null
+            try {
+                val result = runtime.shell.exec(
+                    command = line,
+                    workingDir = workspace,
+                    timeoutMs = SHELL_TIMEOUT_MS,
+                    maxOutputBytes = SHELL_OUTPUT_BYTES,
+                    taskClass = TaskClass.INTERACTIVE,
+                    terminal = true,
+                    onOutput = { rows -> _state.update { it.copy(shellRun = it.shellRun?.copy(rows = rows)) } },
+                )
+                run = UserShell.Run(
+                    command = line,
+                    // On a terminal stderr is on the screen; through pipes it comes after.
+                    output = listOf(result.stdout, result.stderr).map { it.trimEnd() }.filter { it.isNotEmpty() }.joinToString("\n"),
+                    exitCode = result.exitCode,
+                    signal = result.signal,
+                    timedOut = result.timedOut,
+                    durationMs = result.durationMs,
+                )
+            } catch (cancelled: CancellationException) {
+                run = UserShell.Run(
+                    command = line,
+                    output = _state.value.shellRun?.rows.orEmpty().joinToString("\n") { it.text.trimEnd() }.trimEnd(),
+                    exitCode = null,
+                    stopped = true,
+                    durationMs = System.currentTimeMillis() - startedAt,
+                )
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "shell line failed", t)
+                run = UserShell.Run(
+                    command = line,
+                    output = "${t.javaClass.simpleName}: ${t.message}",
+                    exitCode = null,
+                    durationMs = System.currentTimeMillis() - startedAt,
+                )
+            } finally {
+                val record = run
+                val stored = if (record == null) {
+                    null
+                } else {
+                    withContext(NonCancellable) {
+                        runCatching {
+                            runtime.store.append(
+                                Message(
+                                    id = id,
+                                    sessionId = sessionId,
+                                    role = Role.USER,
+                                    content = listOf(Block.Text(UserShell.encode(record))),
+                                ),
+                            )
+                        }.onFailure { Log.e(TAG, "could not keep the shell line", it) }.getOrNull()
+                    }
+                }
+                _state.update { current ->
+                    current.copy(
+                        busy = false,
+                        shellRun = null,
+                        messages = if (stored != null && current.sessionId == sessionId) current.messages + stored else current.messages,
+                    )
+                }
+                AgentService.finish(appContext)
+            }
+        }
+        return true
     }
 
     fun dismissError() = _state.update { it.copy(error = null) }
@@ -2375,7 +2487,9 @@ class ChatViewModel(
 
             // With the summaries left: those written since went with the messages.
             val chat = runCatching { loadChat(sessionId) }.getOrNull()
-            val words = message.content.filterIsInstance<Block.Text>().joinToString("\n") { it.text }
+            val text = message.content.filterIsInstance<Block.Text>().joinToString("\n") { it.text }
+            // A command the user ran comes back as the line they typed.
+            val words = UserShell.decode(text)?.let { "!${it.command}" } ?: text
             val images = withContext(Dispatchers.Default) {
                 message.content.filterIsInstance<Block.Image>().mapIndexedNotNull { index, image ->
                     ImageAttachments.thumbnail("${message.id}:$index", image)?.let { thumbnail ->
@@ -2443,6 +2557,18 @@ class ChatViewModel(
 
         /** Shared files not added are named up to this many; the line above the composer is short. */
         private const val SHARE_NAMES_SHOWN = 3
+
+        /**
+         * A `!` line runs this long at most: a phone's build takes minutes,
+         * and the stop button ends one sooner. A server belongs in a terminal.
+         */
+        private const val SHELL_TIMEOUT_MS = 30L * 60 * 1000
+
+        /**
+         * What a `!` line keeps of its output, start and end: room for a
+         * build's error or a `git diff`, and every later request carries it.
+         */
+        private const val SHELL_OUTPUT_BYTES = 32 * 1024
 
         /**
          * Delta coalescing interval.

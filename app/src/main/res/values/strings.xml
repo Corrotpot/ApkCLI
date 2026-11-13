@@ -134,6 +134,12 @@
     <string name="command_compact_about">Fold the conversation into a summary and free the context: it takes up %1$s.</string>
     <!-- %1$s: the words typed after /compact -->
     <string name="command_compact_about_focus">Fold into a summary, keeping in detail: “%1$s”.</string>
+    <!-- "!" at the start of the words: a line for the project's shell, run instead of asking the model -->
+    <string name="shell_title">Project shell</string>
+    <string name="shell_arg">[command]</string>
+    <string name="shell_about">Runs in the project folder. The output stays in the chat, and the agent reads it with your next message.</string>
+    <string name="shell_run">Run in the project\'s shell</string>
+    <string name="shell_blocked_running">A command is running: wait for it or stop it.</string>
     <string name="command_blocked_running">Already compacting.</string>
     <string name="command_blocked_busy">Possible once the agent has finished its reply.</string>
     <string name="command_blocked_empty">Nothing to compact: the chat has no messages yet.</string>
@@ -489,6 +495,7 @@
     <string name="tool_name_symbol_search">Find symbol</string>
     <string name="tool_name_revert_edit">Revert edit</string>
     <string name="tool_name_sh_exec">Run command</string>
+    <string name="tool_name_user_shell">Your command</string>
     <string name="tool_name_sh_background">Background job</string>
     <string name="tool_name_sh_job_output">Job output</string>
     <string name="tool_name_sh_jobs">Background jobs</string>

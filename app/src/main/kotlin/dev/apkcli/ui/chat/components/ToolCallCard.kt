@@ -307,7 +307,7 @@ internal fun toolIcon(name: String): ImageVector = when {
     name in setOf("grep", "symbol_search") -> Codicons.Search
     name == "web_search" -> Codicons.Search
     name == "web_fetch" -> Codicons.Globe
-    name.startsWith("sh_") -> Codicons.Terminal
+    name.startsWith("sh_") || name == USER_SHELL -> Codicons.Terminal
     name == "build_run" -> Codicons.Tools
     name == "test_run" -> Codicons.Beaker
     name.startsWith("git_") -> Codicons.SourceControl

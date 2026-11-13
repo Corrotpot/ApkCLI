@@ -125,6 +125,12 @@
     <string name="command_compact_about">Свернуть разговор в сводку и освободить контекст: диалог занимает %1$s.</string>
     <!-- %1$s: слова после /compact -->
     <string name="command_compact_about_focus">Свернуть в сводку, подробно сохранив: «%1$s».</string>
+    <!-- «!» в начале: строка для оболочки проекта, выполняется вместо запроса к модели -->
+    <string name="shell_title">Оболочка проекта</string>
+    <string name="shell_arg">[команда]</string>
+    <string name="shell_about">Выполнится в папке проекта. Вывод останется в чате, и агент прочтёт его с вашим следующим сообщением.</string>
+    <string name="shell_run">Выполнить в оболочке проекта</string>
+    <string name="shell_blocked_running">Уже выполняется команда: дождитесь её или остановите.</string>
     <string name="command_blocked_running">Уже сжимается.</string>
     <string name="command_blocked_busy">Можно, когда агент закончит ответ.</string>
     <string name="command_blocked_empty">Нечего сжимать: в чате ещё нет сообщений.</string>
@@ -493,6 +499,7 @@
     <string name="tool_name_symbol_search">Поиск символа</string>
     <string name="tool_name_revert_edit">Откат правки</string>
     <string name="tool_name_sh_exec">Команда</string>
+    <string name="tool_name_user_shell">Ваша команда</string>
     <string name="tool_name_sh_background">Фоновая задача</string>
     <string name="tool_name_sh_job_output">Вывод задачи</string>
     <string name="tool_name_sh_jobs">Фоновые задачи</string>

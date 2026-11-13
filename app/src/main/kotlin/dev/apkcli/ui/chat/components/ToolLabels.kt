@@ -33,6 +33,7 @@ internal fun toolTitleRes(name: String): Int? = when (name) {
     "symbol_search" -> R.string.tool_name_symbol_search
     "revert_edit" -> R.string.tool_name_revert_edit
     "sh_exec" -> R.string.tool_name_sh_exec
+    USER_SHELL -> R.string.tool_name_user_shell
     "sh_background" -> R.string.tool_name_sh_background
     "sh_job_output" -> R.string.tool_name_sh_job_output
     "sh_jobs" -> R.string.tool_name_sh_jobs
@@ -74,7 +75,7 @@ internal fun toolTarget(name: String, argumentsJson: String): String? {
 
     val target = when (name) {
         "fs_move" -> listOfNotNull(str("from"), str("to")).takeIf { it.size == 2 }?.joinToString(" → ")
-        "sh_exec", "sh_background", "build_run", "test_run" -> str("command")?.let { "$ $it" }
+        "sh_exec", "sh_background", "build_run", "test_run", USER_SHELL -> str("command")?.let { "$ $it" }
         "pkg_install", "pkg_remove" -> list("packages") ?: str("package")
         "subagent_dispatch" -> str("prompt")
         "memory_write", "memory_read", "memory_forget" -> str("key")

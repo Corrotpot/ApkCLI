@@ -107,6 +107,44 @@ class CommandRow(
  */
 @Composable
 fun CommandsPlaque(rows: List<CommandRow>, onRun: (ChatCommands.Command) -> Unit, modifier: Modifier = Modifier) {
+    Plaque(stringResource(R.string.commands_title), modifier) {
+        rows.forEach { row ->
+            PlaqueRow(
+                icon = row.command.icon,
+                name = "/${row.command.word}",
+                argument = stringResource(row.command.argument),
+                about = row.about,
+                lit = row.exact,
+                enabled = row.enabled,
+                onClick = { onRun(row.command) },
+            )
+        }
+    }
+}
+
+/**
+ * The plaque for a `!` line ([ChatCommands.shell]): the line, and what
+ * sending it does or, as [blocked], why it cannot now. A tap runs it, as a
+ * command's row does.
+ */
+@Composable
+fun ShellPlaque(command: String, blocked: String?, onRun: () -> Unit, modifier: Modifier = Modifier) {
+    Plaque(stringResource(R.string.shell_title), modifier) {
+        PlaqueRow(
+            icon = Codicons.Terminal,
+            name = "!",
+            argument = command.ifBlank { stringResource(R.string.shell_arg) },
+            about = blocked ?: stringResource(R.string.shell_about),
+            lit = true,
+            enabled = blocked == null && command.isNotBlank(),
+            onClick = onRun,
+        )
+    }
+}
+
+/** `.cmds`: the plaque's frame and its overline [title]. */
+@Composable
+private fun Plaque(title: String, modifier: Modifier, rows: @Composable ColumnScope.() -> Unit) {
     // `menu-in`: from 96 % and clear, over the menu's 120 ms, from the bottom edge.
     val entered = remember { Animatable(0f) }
     LaunchedEffect(Unit) { entered.animateTo(1f, tween(Design.Motion.Menu, easing = Design.Motion.Standard)) }
@@ -128,47 +166,55 @@ fun CommandsPlaque(rows: List<CommandRow>, onRun: (ChatCommands.Command) -> Unit
             .padding(4.dp),
     ) {
         Text(
-            stringResource(R.string.commands_title).uppercase(),
+            title.uppercase(),
             style = Design.Type.Overline,
             color = Design.Colors.TextTertiary,
             modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 4.dp),
         )
-        rows.forEach { row -> CommandRowView(row, onRun) }
+        rows()
     }
 }
 
 /** `.cmd`: the glyph, `/name [what it takes]`, and what it does or why it cannot. */
 @Composable
-private fun CommandRowView(row: CommandRow, onRun: (ChatCommands.Command) -> Unit) {
+private fun PlaqueRow(
+    icon: ImageVector,
+    name: String,
+    argument: String,
+    about: String,
+    lit: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     val shape = RoundedCornerShape(Design.Radius.MenuItem)
     Row(
         Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(if (row.exact) Design.Colors.Surface3 else Color.Transparent)
-            .pressable(onClick = { onRun(row.command) }, enabled = row.enabled)
+            .background(if (lit) Design.Colors.Surface3 else Color.Transparent)
+            .pressable(onClick = onClick, enabled = enabled)
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
             Icon(
-                row.command.icon,
+                icon,
                 contentDescription = null,
-                tint = if (row.enabled) Design.Colors.Accent else Design.Colors.TextDisabled,
+                tint = if (enabled) Design.Colors.Accent else Design.Colors.TextDisabled,
                 modifier = Modifier.size(Design.Size.IconSmall),
             )
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "/${row.command.word}",
+                    name,
                     style = Design.Type.MonoLabel,
-                    color = if (row.enabled) Design.Colors.Text else Design.Colors.TextDisabled,
+                    color = if (enabled) Design.Colors.Text else Design.Colors.TextDisabled,
                     maxLines = 1,
                     modifier = Modifier.alignByBaseline(),
                 )
                 Text(
-                    stringResource(row.command.argument),
+                    argument,
                     style = Design.Type.Caption,
                     color = Design.Colors.TextTertiary,
                     maxLines = 1,
@@ -177,9 +223,9 @@ private fun CommandRowView(row: CommandRow, onRun: (ChatCommands.Command) -> Uni
                 )
             }
             Text(
-                row.about,
+                about,
                 style = Design.Type.BodySmall,
-                color = if (row.enabled) Design.Colors.TextSecondary else Design.Colors.TextTertiary,
+                color = if (enabled) Design.Colors.TextSecondary else Design.Colors.TextTertiary,
             )
         }
     }

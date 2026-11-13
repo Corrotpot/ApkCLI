@@ -9,6 +9,9 @@ package dev.apkcli.ui.chat
  * a tap runs one, and so does sending the words once they are one. Anything
  * else that starts with "/" — a path, "/etc/hosts" — is an ordinary message,
  * and the plaque stays away.
+ *
+ * "!" at the start makes the words a shell line ([shell]), as in OpenCode and
+ * Claude Code: sending runs it in the project instead of asking the model.
  */
 object ChatCommands {
 
@@ -37,6 +40,17 @@ object ChatCommands {
         val followed = end < words.length
         val matches = if (followed) listOfNotNull(exact) else Command.entries.filter { it.word.startsWith(name) }
         return Typed(name, if (followed) words.substring(end).trim() else "", exact, matches)
+    }
+
+    /**
+     * What a `!` line runs in the project's shell: the words after the `!`,
+     * blank while there are none yet. Null when the words do not start with
+     * `!`. The line goes to the shell as typed, not to the model.
+     */
+    fun shell(text: String): String? {
+        val words = text.trimStart()
+        if (!words.startsWith('!')) return null
+        return words.substring(1).trim()
     }
 
     private fun Char.isAsciiLetter() = this in 'a'..'z' || this in 'A'..'Z'

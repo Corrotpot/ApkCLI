@@ -1407,6 +1407,21 @@ would be opened with the app's own rights, conversation database included.
 An Activity recreated or reopened from Recents is handed the intent it was
 started with again, so only a fresh start takes the share in it.
 
+## Shell lines in the composer
+
+Words that start with `!` are a line for the project's shell, as in OpenCode
+and Claude Code (`ChatCommands.shell`, `ChatViewModel.runShell`). Sending runs
+it in the project folder through `ShellRunner` on a terminal, as the agent's
+commands run, for at most 30 minutes; the stop button ends it sooner. No model
+is asked. What it printed, up to 32 KB with its start and end kept, is stored
+as the user's message (`UserShell`): the line as typed, then the output in a
+`<user_shell exit="0" ms="214">` block. It is plain text, so every adapter sends
+it unchanged, the chat's preview and title read `!git status`, and the system
+prompt says the block is context the user produced, not a request. The chat
+draws it as a command card, open from the start, and a stopped line keeps what
+its screen showed. While the agent works, a line cannot be sent: its record
+would land in the middle of the turn.
+
 ## Python packages with native code
 
 PyPI has almost no Android wheels, so pip compiles C and Rust extensions on

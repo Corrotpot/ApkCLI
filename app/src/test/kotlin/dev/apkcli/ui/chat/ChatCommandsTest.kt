@@ -54,4 +54,14 @@ class ChatCommandsTest {
             assertNull(words, ChatCommands.parse(words))
         }
     }
+
+    @Test
+    fun `a ! at the start is a shell line, a blank one until words follow`() {
+        assertEquals("git status", ChatCommands.shell("  !git status  "))
+        assertEquals("ls\nwc -l", ChatCommands.shell("!ls\nwc -l\n"))
+        assertEquals("", ChatCommands.shell("!"))
+        for (words in listOf("hello !ls", "/compact", "", "ls")) {
+            assertNull(words, ChatCommands.shell(words))
+        }
+    }
 }

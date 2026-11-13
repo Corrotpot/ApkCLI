@@ -61,6 +61,7 @@ import dev.apkcli.core.model.MessageStatus
 import dev.apkcli.core.model.ReasoningSupport
 import dev.apkcli.core.model.Role
 import dev.apkcli.core.model.ToolCallStatus
+import dev.apkcli.core.model.UserShell
 import dev.apkcli.core.store.ConversationStore
 import dev.apkcli.ui.EditorBus
 import dev.apkcli.ui.chat.components.ChangesBar
@@ -80,9 +81,12 @@ import dev.apkcli.ui.chat.components.SubagentFind
 import dev.apkcli.ui.chat.components.KeyNoticeCard
 import dev.apkcli.ui.chat.components.MessageMeta
 import dev.apkcli.ui.chat.components.PlanCard
+import dev.apkcli.ui.chat.components.RunningShellCard
+import dev.apkcli.ui.chat.components.ShellPlaque
 import dev.apkcli.ui.chat.components.ThinkingBlock
 import dev.apkcli.ui.chat.components.ToolCallCard
 import dev.apkcli.ui.chat.components.UserBubble
+import dev.apkcli.ui.chat.components.UserShellCard
 import dev.apkcli.ui.chat.components.WaitingRow
 import dev.apkcli.ui.chat.components.diffFindSegments
 import dev.apkcli.ui.chat.components.digestFindSegments
@@ -333,7 +337,7 @@ fun ChatScreen(
         }
 
         Box(Modifier.weight(1f)) {
-            if (state.messages.isEmpty() && state.streaming == null) {
+            if (state.messages.isEmpty() && state.streaming == null && state.shellRun == null) {
                 EmptyChat(onSuggest = { draft = it })
             } else CompositionLocalProvider(LocalFindMarks provides marks) {
                 LazyColumn(
@@ -359,7 +363,9 @@ fun ChatScreen(
                                         enabled = !state.restoringCheckpoint,
                                         onRestore = { viewModel.askRestoreCheckpoint(item.message.id) },
                                     )
-                                    UserBubble(item.message)
+                                    // A command the user ran (`!`): its card, not the record's text.
+                                    val shellRun = remember(item.message.id) { UserShell.decode(item.message.text) }
+                                    if (shellRun != null) UserShellCard(item.message.id, shellRun) else UserBubble(item.message)
                                     item.message.createdAt.takeIf { it > 0 }?.let { MessageMeta(clock(it), model = null, end = true) }
                                 }
                                 Role.DIGEST -> item.digest?.let { CompactionSeam(it) }
@@ -391,6 +397,15 @@ fun ChatScreen(
                             ?: "streaming-${streaming.messageId}"
                         item(key = key) {
                             StreamingItem(streaming, viewModel::toggleThinking, thinkingScroll(streaming.messageId), openPath)
+                        }
+                    }
+
+                    // A `!` line running, under the key its message will
+                    // have: stored, it is the same item and keeps its place.
+                    state.shellRun?.let { run ->
+                        val key = run.id.takeIf { id -> rendered.none { it.message.id == id } } ?: "shell-${run.id}"
+                        item(key = key) {
+                            RunningShellCard(run.id, run.command, run.startedAt, run.rows)
                         }
                     }
 
@@ -445,7 +460,19 @@ fun ChatScreen(
             // worked out then, not on every streamed delta.
             val typed = remember(draft) { ChatCommands.parse(draft) }
             val command = typed?.exact
-            if (typed != null && typed.matches.isNotEmpty()) {
+            // "!" at the start: a line for the project's shell, not the model.
+            val shellLine = remember(draft) { ChatCommands.shell(draft) }
+            if (shellLine != null) {
+                ShellPlaque(
+                    command = shellLine,
+                    blocked = when {
+                        state.shellRun != null -> stringResource(R.string.shell_blocked_running)
+                        state.busy -> stringResource(R.string.command_blocked_busy)
+                        else -> null
+                    },
+                    onRun = { if (viewModel.runShell(shellLine)) draft = "" },
+                )
+            } else if (typed != null && typed.matches.isNotEmpty()) {
                 CommandsPlaque(
                     rows = typed.matches.map { match ->
                         val blocked = blockOf(match, state)
@@ -514,6 +541,8 @@ fun ChatScreen(
                 },
                 command = command,
                 commandEnabled = command != null && blockOf(command, state) == null,
+                shell = shellLine != null,
+                shellEnabled = !shellLine.isNullOrBlank(),
             )
         }
     }
@@ -670,7 +699,16 @@ private fun findItemOf(item: RenderItem, inFlight: Set<String>, noResult: String
     val message = item.message
     val segments = ArrayList<Pair<String, String>>()
     when (message.role) {
-        Role.USER -> if (message.text.isNotBlank()) segments += "u" to message.text
+        Role.USER -> {
+            // A command the user ran: as its card draws it, the line and the output.
+            val run = UserShell.decode(message.text)
+            if (run != null) {
+                segments += "tool:${message.id}:t" to "$ ${run.command}"
+                segments += "tool:${message.id}:b" to monoShown(run.output, clipped, locale)
+            } else if (message.text.isNotBlank()) {
+                segments += "u" to message.text
+            }
+        }
         Role.ASSISTANT -> {
             val parts = assistantText(message)
             // Piece by piece, as ThinkingBlock draws it.
