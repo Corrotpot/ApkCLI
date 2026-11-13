@@ -108,7 +108,7 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
 
     /* ------------------------------------------------------------ streaming */
 
-    private fun consumeStream(
+    internal fun consumeStream(
         response: okhttp3.Response,
         emit: (StreamEvent) -> Unit,
     ) {
@@ -119,6 +119,7 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
         val callIdByIndex = HashMap<Int, String>()
         val nameByIndex = HashMap<Int, String>()
         val announced = HashSet<Int>()
+        val endedIndices = HashSet<Int>()
         var finishReason: String? = null
         var sawUsage = false
         val thinkTags = ThinkTagSplitter()
@@ -195,6 +196,13 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
                     val index = fragment.int("index", 0)
                     val fn = fragment.obj("function")
 
+                    // Calls stream one after another: one starting means the
+                    // ones before it are whole, and the loop may run them
+                    // while this one is written (AgentLoop's early calls).
+                    callIdByIndex.keys.filter { it < index && endedIndices.add(it) }.sorted().forEach { earlier ->
+                        callIdByIndex[earlier]?.let { emit(StreamEvent.ToolCallEnd(it)) }
+                    }
+
                     fragment.str("id")?.takeIf { it.isNotBlank() }
                         ?.let { callIdByIndex[index] = it }
                     fn?.str("name")?.takeIf { it.isNotBlank() }
@@ -215,7 +223,7 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
         }
 
         thinkTags.finish().forEach { emit(it.toStreamEvent()) }
-        callIdByIndex.keys.sorted().forEach { index ->
+        callIdByIndex.keys.filter { endedIndices.add(it) }.sorted().forEach { index ->
             callIdByIndex[index]?.let { emit(StreamEvent.ToolCallEnd(it)) }
         }
         if (!sawUsage) {

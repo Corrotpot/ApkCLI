@@ -510,8 +510,8 @@ append results <- execute tools <- tool calls?
   and "could not parse the arguments" had the model write the same call again,
   cut at the same place, until the iteration cap. It is answered with why it
   did not run and how to split the work, and the system prompt states the
-  limit up front. There is no automatic continue: the note under the reply
-  says to ask for one.
+  limit up front. A reply cut where it had no call to run is asked to go on
+  instead, three times a turn at most.
 * **Tool results are their own message.** Both protocols require the assistant
   message that made the calls, followed by the results.
 * **A message sent while the turn runs waits for the next step.** It goes into
@@ -527,6 +527,16 @@ append results <- execute tools <- tool calls?
   a call is safe can depend on its arguments (`Tool.parallelSafe(args)`):
   Explorers dispatched together run together, and a worker runs alone, like
   any change.
+* **Reads start while the reply is still written** (`EarlyCalls`). A call
+  whose arguments are whole (the stream's `ToolCallEnd`) runs at once when it
+  changes nothing (`Tools.readOnlyToolNames`), needs no approval, may run
+  beside others, and no call before it in the reply is a change: by the time
+  the model has written the last call of a batch, a `web_fetch` or a grep over
+  a large tree is often done. The calls are run as before, in order, taking a
+  result that is ready; one whose final arguments differ from those it
+  started with runs again. Chat Completions streams say a call is whole only
+  at the end, so that adapter ends a call when the next one starts. What did
+  not get used is cancelled with the reply or the turn.
 
 ## Tools
 

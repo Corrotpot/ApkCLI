@@ -31,8 +31,13 @@ import dev.apkcli.core.sched.LoadGovernor
 import dev.apkcli.core.store.ConversationStore
 import dev.apkcli.core.web.WebFetcher
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -43,6 +48,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.CoroutineContext
 
 /**
  * The agent turn.
@@ -271,6 +277,8 @@ class AgentLoop(
                 sentSinceCompaction = true
 
                 if (outcome.error != null) {
+                    // Its calls are not run, nor the reads already started.
+                    outcome.early.cancel()
                     val error = outcome.error
                     // Too long for the provider: compact against the window it
                     // allows and send again, rather than end a turn that may be
@@ -314,6 +322,7 @@ class AgentLoop(
                 }
 
                 if (outcome.toolUses.isEmpty()) {
+                    outcome.early.cancel()
                     // Cut at its output limit with nothing to run: asked to go
                     // on from where it stopped, a few times a turn. It used to
                     // end the turn with a note telling the user to ask.
@@ -329,7 +338,7 @@ class AgentLoop(
                     break
                 }
 
-                executeToolCalls(this, current, outcome.assistantMessageId, outcome.toolUses, outcome.cutOff)
+                executeToolCalls(this, current, outcome.assistantMessageId, outcome.toolUses, outcome.cutOff, outcome.early)
 
                 if (iterations >= config.maxIterations) {
                     stopReason = AgentEvent.StopReason.ITERATION_LIMIT
@@ -647,6 +656,8 @@ class AgentLoop(
         val error: LlmError?,
         /** The reply stopped at its output limit: a call it was writing may be incomplete. */
         val cutOff: Boolean = false,
+        /** Calls already running; see [EarlyCalls]. Cancelled unless [executeToolCalls] takes them. */
+        val early: EarlyCalls,
     )
 
     /**
@@ -710,6 +721,7 @@ class AgentLoop(
         var lastPersist = 0L
 
         val request = agentRequest(config, prepared)
+        val early = EarlyCalls(currentCoroutineContext(), config, messageId, config.agent.maxParallelTools.coerceIn(1, 8))
 
         try {
             llm.stream(request).collect { event ->
@@ -742,6 +754,7 @@ class AgentLoop(
                         if (event.callId !in toolOrder) toolOrder += event.callId
                         toolNames[event.callId] = event.name
                         toolArgs.getOrPut(event.callId) { StringBuilder() }
+                        early.began(event.name)
                         collector.emit(
                             AgentEvent.ToolCallStarted(messageId, event.callId, event.name, ""),
                         )
@@ -770,7 +783,9 @@ class AgentLoop(
                         }
                     }
 
-                    is StreamEvent.ToolCallEnd -> Unit
+                    // Whole now: a read can run while the rest is written.
+                    is StreamEvent.ToolCallEnd ->
+                        early.ended(event.callId, toolNames[event.callId], toolArgs[event.callId]?.toString().orEmpty())
 
                     is StreamEvent.Usage -> {
                         reasoningTokens = event.reasoningTokens
@@ -804,6 +819,7 @@ class AgentLoop(
                 }
             }
         } catch (stopped: CancellationException) {
+            early.cancel()
             // Stopped: the reply stays as far as it came, marked as stopped,
             // and indexed — not as the last periodic save left it, up to
             // PERSIST_INTERVAL_MS short of what the user watched arrive and
@@ -876,6 +892,7 @@ class AgentLoop(
             toolUses = blocks.filterIsInstance<Block.ToolUse>(),
             error = failure,
             cutOff = notice?.kind == Block.Notice.OUTPUT_LIMIT,
+            early = early,
         )
     }
 
@@ -951,6 +968,23 @@ class AgentLoop(
         toolUses: List<Block.ToolUse>,
         /** The reply stopped at its output limit; see [runOne]. */
         cutOff: Boolean = false,
+        /** Reads that started while the reply was written; taken here instead of run again. */
+        early: EarlyCalls? = null,
+    ) {
+        try {
+            runToolCalls(collector, config, assistantMessageId, toolUses, cutOff, early)
+        } finally {
+            early?.cancel()
+        }
+    }
+
+    private suspend fun runToolCalls(
+        collector: FlowCollector<AgentEvent>,
+        config: TurnConfig,
+        assistantMessageId: String,
+        toolUses: List<Block.ToolUse>,
+        cutOff: Boolean,
+        early: EarlyCalls?,
     ) {
         val results = mutableListOf<Block.ToolResult>()
         val touched = mutableListOf<String>()
@@ -967,10 +1001,14 @@ class AgentLoop(
             val executed = coroutineScope {
                 val work = async {
                     if (group.size == 1) {
-                        listOf(runOne(config, assistantMessageId, group.first(), output, cutOff))
+                        val use = group.first()
+                        listOf(early?.take(use)?.await() ?: runOne(config, assistantMessageId, use, output, cutOff))
                     } else {
                         group
-                            .map { use -> async { runOne(config, assistantMessageId, use, output, cutOff) } }
+                            .map { use ->
+                                val running = early?.take(use)
+                                async { running?.await() ?: runOne(config, assistantMessageId, use, output, cutOff) }
+                            }
                             .map { it.await() }
                     }
                 }
@@ -1043,6 +1081,66 @@ class AgentLoop(
         val event: AgentEvent,
         val touchedPaths: List<String>,
     )
+
+    /**
+     * Read-only calls started while the reply that makes them is still being
+     * written: by the time the model has written the last call of a batch,
+     * the first one (a web_fetch, a grep over a large tree) is often done.
+     *
+     * Only calls that change nothing ([Tools.readOnlyToolNames]), need no
+     * approval, may run beside others, and come before any call in the reply
+     * that is not one of them: a read after a write in the same reply must
+     * see the write. [executeToolCalls] takes what started here instead of
+     * running it again, and drops one whose final arguments differ.
+     *
+     * Not children of the stream's coroutine, which would then wait for them
+     * on every path that does not run the calls: they end with it instead
+     * ([cancel], and when that coroutine completes, however it does).
+     */
+    private inner class EarlyCalls(
+        context: CoroutineContext,
+        private val config: TurnConfig,
+        private val messageId: String,
+        private val limit: Int,
+    ) {
+        private val job = SupervisorJob()
+        private val scope = CoroutineScope(context + job)
+        private val unlink = context[Job]?.invokeOnCompletion { job.cancel() }
+        private val started = HashMap<String, Pair<String, Deferred<CallOutcome>>>()
+
+        /** A call that is not one of them has begun: none after it starts early. */
+        private var closed = false
+
+        /** Their running output: nobody draws it before the reply is done, and read-only tools print none. */
+        private val output = Channel<AgentEvent>(Channel.CONFLATED)
+
+        fun began(name: String) {
+            if (name !in Tools.readOnlyToolNames || registry.needsApproval(name, config.currentAgent()) != false) {
+                closed = true
+            }
+        }
+
+        fun ended(callId: String, name: String?, arguments: String) {
+            if (closed || name == null || started.size >= limit || callId in started) return
+            if (!registry.parallelSafe(name, arguments)) return
+            val use = Block.ToolUse(callId, name, arguments)
+            started[callId] = arguments to scope.async { runOne(config, messageId, use, output) }
+        }
+
+        /** What started here for [use], while its arguments are still those it started with. */
+        fun take(use: Block.ToolUse): Deferred<CallOutcome>? {
+            val (arguments, deferred) = started.remove(use.callId) ?: return null
+            if (arguments == use.argumentsJson) return deferred
+            deferred.cancel()
+            return null
+        }
+
+        /** Stop what was not taken: the reply failed, or its calls are not run, or they all ran. */
+        fun cancel() {
+            unlink?.dispose()
+            job.cancel()
+        }
+    }
 
     private suspend fun runOne(
         config: TurnConfig,
