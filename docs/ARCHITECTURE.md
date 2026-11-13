@@ -555,6 +555,22 @@ Error messages are written for a reader who will act on them. "Permission
 denied" sends an agent into a `chmod` loop; the actual explanation makes it route
 around the problem.
 
+### Edits are read back for syntax
+
+After `fs_write`, `fs_edit`, `fs_multi_edit` and `fs_apply_patch` the loop
+checks that the file still parses (`SyntaxCheck`) and adds a line to the result
+when it does not, with the line number: a stray comma in `package.json` or an
+unclosed tag in a layout otherwise turns up steps later as a build error that
+seems to be about something else. JSON (comments and trailing commas allowed,
+as `tsconfig.json` has them) and XML are parsed in the app, without fetching a
+DTD. Python, TOML (Python 3.11 and later) and YAML (with PyYAML; composed, so a
+custom tag such as `!Ref` is not an error) are checked by `python3`, JavaScript
+by `node --check`, shell scripts by `sh -n` or `bash -n`, each only when it is
+installed. A checker that is missing or cannot decide adds nothing, and an
+ESM-versus-CommonJS complaint from Node does not count as a syntax error. The
+note allows for a file still being written in parts, which the loop itself
+advises for long files.
+
 ### Terminals: one registry, read by both sides
 
 `TerminalSessions` owns every PTY in the process: the shells the user opens in

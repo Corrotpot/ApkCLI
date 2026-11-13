@@ -2,6 +2,7 @@ package dev.apkcli.core.agent
 
 import android.os.Build
 import android.util.Log
+import dev.apkcli.core.agent.tools.SyntaxCheck
 import dev.apkcli.core.llm.CompletionRequest
 import dev.apkcli.core.llm.LlmClient
 import dev.apkcli.core.llm.LlmError
@@ -1099,7 +1100,7 @@ class AgentLoop(
         // A call the output limit cut off is not JSON. Told as "could not
         // parse", the model wrote the same call again, was cut at the same
         // place, and went round until the iteration cap.
-        val result = if (cutOff && (use.argumentsJson.isBlank() || !registry.parses(use.argumentsJson))) {
+        val executed = if (cutOff && (use.argumentsJson.isBlank() || !registry.parses(use.argumentsJson))) {
             ToolResult.error(
                 "Not run: your reply reached its output limit (${config.model.maxOutputTokens} tokens) " +
                     "while this call was being written, so its arguments were cut off. Send less in one " +
@@ -1109,6 +1110,9 @@ class AgentLoop(
         } else {
             registry.execute(use.name, use.argumentsJson, ctx)
         }
+        // An edit that left its file unparsable says so while the model
+        // still has the edit in mind (SyntaxCheck).
+        val result = if (use.name in SYNTAX_CHECKED && !executed.isError) withSyntaxNotes(executed, ctx) else executed
         val duration = System.currentTimeMillis() - started
 
         // The command list in the prompt is cached for a minute; after an
@@ -1151,6 +1155,21 @@ class AgentLoop(
             ),
             touchedPaths = result.touchedPaths,
         )
+    }
+
+    /**
+     * [result] with a note for each file it wrote that no longer parses.
+     * A check that fails to run adds nothing: the edit itself went through.
+     */
+    private suspend fun withSyntaxNotes(result: ToolResult, ctx: ToolContext): ToolResult {
+        val notes = result.touchedPaths.mapNotNull { path ->
+            val file = File(path)
+            runCatching { SyntaxCheck.problem(file, ctx.display(file), shell) }
+                .onFailure { Log.w(TAG, "syntax check of $path failed: ${it.message}") }
+                .getOrNull()
+        }
+        if (notes.isEmpty()) return result
+        return result.copy(content = result.content + "\n\n" + notes.joinToString("\n"))
     }
 
     /**
@@ -1313,5 +1332,8 @@ class AgentLoop(
         /** Ceiling on a diff stored for the transcript; see [diffSummary]. */
         private const val MAX_DIFF_LINES = 400
         private const val MAX_DIFF_CHARS = 48 * 1024
+
+        /** The edits whose files [SyntaxCheck] reads afterwards. */
+        private val SYNTAX_CHECKED = setOf("fs_write", "fs_edit", "fs_multi_edit", "fs_apply_patch")
     }
 }
