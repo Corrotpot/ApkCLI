@@ -1145,6 +1145,7 @@ class AgentLoop(
                 durationMs = duration,
                 diff = (result.display as? ToolDisplay.Diff)?.let(::diffSummary),
                 subagent = (result.display as? ToolDisplay.Subagent)?.run,
+                images = result.images,
             ),
             event = AgentEvent.ToolCallFinished(
                 callId = use.callId,

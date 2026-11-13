@@ -326,6 +326,8 @@ data class ToolResult(
     val exitCode: Int? = null,
     /** Files this call changed, for the editor to reload. */
     val touchedPaths: List<String> = emptyList(),
+    /** Pictures for the model, after [content]; see [dev.apkcli.core.model.Block.ToolResult.images]. */
+    val images: List<dev.apkcli.core.model.Block.Image> = emptyList(),
 ) {
     companion object {
         fun ok(content: String, display: ToolDisplay? = null) = ToolResult(content, display = display)

@@ -9,6 +9,7 @@ import dev.apkcli.core.agent.Tool
 import dev.apkcli.core.agent.ToolContext
 import dev.apkcli.core.agent.ToolDisplay
 import dev.apkcli.core.agent.ToolResult
+import dev.apkcli.core.media.ModelImage
 import dev.apkcli.core.nativebridge.NativeCore
 import dev.apkcli.core.nativebridge.NativeException
 import dev.apkcli.core.sched.TaskClass
@@ -161,21 +162,25 @@ class FsReadTool : Tool {
     override val taskClass = TaskClass.INTERACTIVE
 
     override val description = """
-        Read a text file and get its lines back numbered.
+        Read a text file and get its lines back numbered, or look at an image.
 
         When to use it: you know the file and roughly the part you need. To locate
         something, use grep or symbol_search; for a large file, get its outline and
         read only the lines you need.
 
         `offset` is 0-based but printed numbers start at 1: to begin at line N, pass
-        N-1. Binary files and files over 8 MB are refused, as are paths outside
-        ${'$'}HOME, ${'$'}PREFIX and the app's state directory. A result over the
-        per-call context budget (often a few hundred lines) loses its middle, with the
-        full text kept for conversation_read, so read large files in smaller ranges.
+        N-1. An image (PNG, JPEG, GIF, WebP, BMP, HEIC) comes back as the picture
+        itself, at most 1568 px on its long edge, when the model is known to take
+        images: a screenshot of a bug, a design to match, an icon to check. Otherwise
+        you get its size and are told it is not shown. Other binary files
+        and text over 8 MB are refused, as are paths outside ${'$'}HOME,
+        ${'$'}PREFIX and the app's state directory. A result over the per-call
+        context budget (often a few hundred lines) loses its middle, with the full
+        text kept for conversation_read, so read large files in smaller ranges.
 
         Output: a header giving the path, the range shown and the total line count,
         with "(more follows)" when the file continues; then each line prefixed by its
-        number.
+        number. For an image, its size in pixels, then the picture.
     """.trimIndent()
 
     override val parameters = Schema.obj(required = listOf("path")) {
@@ -193,6 +198,7 @@ class FsReadTool : Tool {
                     "right path.",
             )
         }
+        if (file.isFile && file.extension.lowercase() in IMAGE_EXTENSIONS) return readImage(file, ctx)
 
         return try {
             val result = NativeCore.search(
@@ -237,6 +243,54 @@ class FsReadTool : Tool {
         } catch (e: NativeException) {
             ToolResult.error("Could not read ${ctx.display(file)}: ${e.detail}")
         }
+    }
+
+    /**
+     * A picture, shown to the model instead of refused as binary. Not to a
+     * model whose endpoint says it takes no images: those reject the request
+     * that carries one, and the turn would end there.
+     */
+    private suspend fun readImage(file: File, ctx: ToolContext): ToolResult {
+        // Only to a model known to take images. Unlike a picture the user
+        // attaches, the agent sends this one unasked, and a text-only model
+        // behind an endpoint that does not say (DeepSeek's) refuses every
+        // later request of the chat that carries it.
+        val model = ctx.settings.activeModel
+        if (model?.supportsImages != true) {
+            val size = withContext(Dispatchers.IO) { ModelImage.sizeOf(file) }
+                ?.let { (width, height) -> ", ${width}x$height px" }.orEmpty()
+            return ToolResult.refused(
+                "${ctx.display(file)} is an image$size, and ${model?.id ?: "the model"} is not known " +
+                    "to take images, so it is not shown. Work from its name and size, or ask the user " +
+                    "what it shows.",
+            )
+        }
+        if (file.length() > MAX_IMAGE_BYTES) {
+            return ToolResult.error(
+                "${ctx.display(file)} is ${file.length() / 1024 / 1024} MB, over the " +
+                    "${MAX_IMAGE_BYTES / 1024 / 1024} MB read as an image.",
+            )
+        }
+        val read = withContext(Dispatchers.IO) { runCatching { ModelImage.fromFile(file) }.getOrNull() }
+            ?: return ToolResult.error("${ctx.display(file)} could not be decoded as an image on this device.")
+        val shown = read.image
+        val scaled = if (shown.width != read.width || shown.height != read.height) {
+            ", shown at ${shown.width}x${shown.height}"
+        } else {
+            ""
+        }
+        return ToolResult(
+            content = "${ctx.display(file)}: an image, ${read.width}x${read.height} px$scaled.",
+            images = listOf(shown),
+        )
+    }
+
+    private companion object {
+        /** What fs_read shows as a picture; SVG is text, and read as such. */
+        val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif")
+
+        /** Past this an image is not decoded: a phone's photo is a few megabytes. */
+        const val MAX_IMAGE_BYTES = 40L * 1024 * 1024
     }
 }
 

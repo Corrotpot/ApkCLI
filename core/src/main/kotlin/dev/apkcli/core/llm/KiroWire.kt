@@ -254,6 +254,8 @@ object KiroWire {
                     val turn = turn(user = true)
                     message.toolResults.forEach { result ->
                         turn.results += Result(result.callId, result.name, result.content, result.isError)
+                        // A tool result is text here; a picture it returned rides with the turn.
+                        turn.images += result.images
                     }
                 }
                 Role.DIGEST, Role.SYSTEM -> turn(user = true).append("[context]\n${message.text}")

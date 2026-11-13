@@ -18,9 +18,11 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.io.IOException
 
@@ -368,6 +370,15 @@ class AnthropicAdapter : LlmProtocolAdapter {
      * @param appContext the system prompt's per-request part ([SystemSplit]),
      *   put after the newest user turn's cache breakpoint.
      */
+    private fun imageBlock(image: Block.Image): JsonObject = buildJsonObject {
+        put("type", "image")
+        putJsonObject("source") {
+            put("type", "base64")
+            put("media_type", image.mimeType)
+            put("data", image.data)
+        }
+    }
+
     private fun encodeMessages(messages: List<Message>, appContext: String? = null): JsonArray {
         // Built as (role, blocks) pairs first, then adjacent same-role entries
         // are merged, because this API is strict about the shape of the
@@ -399,7 +410,18 @@ class AnthropicAdapter : LlmProtocolAdapter {
                         buildJsonObject {
                             put("type", "tool_result")
                             put("tool_use_id", result.callId)
-                            put("content", result.content.ifBlank { "(no output)" })
+                            if (result.images.isEmpty()) {
+                                put("content", result.content.ifBlank { "(no output)" })
+                            } else {
+                                // A picture the call returned goes in the result itself.
+                                putJsonArray("content") {
+                                    addJsonObject {
+                                        put("type", "text")
+                                        put("text", result.content.ifBlank { "(no output)" })
+                                    }
+                                    result.images.forEach { image -> add(imageBlock(image)) }
+                                }
+                            }
                             if (result.isError) put("is_error", true)
                         }
                     },
@@ -451,14 +473,7 @@ class AnthropicAdapter : LlmProtocolAdapter {
                     }
                     val blocks = mutableListOf<JsonObject>()
                     for (image in message.content.filterIsInstance<Block.Image>()) {
-                        blocks += buildJsonObject {
-                            put("type", "image")
-                            putJsonObject("source") {
-                                put("type", "base64")
-                                put("media_type", image.mimeType)
-                                put("data", image.data)
-                            }
-                        }
+                        blocks += imageBlock(image)
                     }
                     // An image sent without words needs no text beside it; an
                     // empty text block is rejected, so a message with neither

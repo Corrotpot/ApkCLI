@@ -1,6 +1,7 @@
 package dev.apkcli.ui.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,7 +11,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,7 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -42,9 +48,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.apkcli.R
 import dev.apkcli.core.agent.ToolDisplay
+import dev.apkcli.core.model.Block
 import dev.apkcli.core.model.ToolCallStatus
 import dev.apkcli.core.runtime.TerminalBuffer
 import dev.apkcli.ui.chat.ChatViewModel
+import dev.apkcli.ui.chat.ImageAttachments
 import dev.apkcli.ui.chat.find.LocalFindItem
 import dev.apkcli.ui.chat.find.LocalFindMarks
 import dev.apkcli.ui.chat.find.rememberFindable
@@ -57,7 +65,9 @@ import dev.apkcli.ui.text.bytesText
 import dev.apkcli.ui.theme.Design
 import dev.apkcli.ui.theme.LocalEditorColors
 import dev.apkcli.ui.theme.MonoSmallStyle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
@@ -259,6 +269,7 @@ fun ToolCallCard(
         // long session into a wall of checklists.
         AnimatedVisibility(visible = open && !running) {
             Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                if (call.images.isNotEmpty()) ToolImages(call.callId, call.images)
                 when (val display = call.display) {
                     is ToolDisplay.Diff -> DiffView(display, truncated = call.diffTruncated, onRevert = onRevert, findSegment = findDiff)
                     is ToolDisplay.Command -> CommandView(display)
@@ -266,6 +277,45 @@ fun ToolCallCard(
                     is ToolDisplay.SearchResults -> SearchResultsView(display)
                     is ToolDisplay.Tasks -> TaskChecklist(display.items)
                     else -> MonoBlock(call.resultPreview, findSegment = findBody)
+                }
+            }
+        }
+    }
+}
+
+/** Pictures a call returned (`fs_read` of an image), whole, as the model was shown them. */
+@Composable
+private fun ToolImages(callId: String, images: List<Block.Image>) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        images.forEachIndexed { index, image ->
+            val key = "$callId#$index"
+            val bitmap by produceState<ImageBitmap?>(initialValue = null, key) {
+                value = withContext(Dispatchers.Default) { ImageAttachments.thumbnail(key, image) }
+            }
+            val width = image.width ?: 1
+            val height = image.height?.takeIf { it > 0 } ?: 1
+            val shape = RoundedCornerShape(Design.Radius.Box)
+            Box(
+                Modifier
+                    .height(180.dp)
+                    .aspectRatio((width.toFloat() / height).coerceIn(0.3f, 3f))
+                    .clip(shape)
+                    .background(Design.Colors.Surface2)
+                    .border(1.dp, Design.Colors.Border, shape),
+            ) {
+                bitmap?.let {
+                    Image(
+                        bitmap = it,
+                        contentDescription = image.label ?: stringResource(R.string.chat_image),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
             }
         }

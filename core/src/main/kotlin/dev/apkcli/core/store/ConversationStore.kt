@@ -320,7 +320,8 @@ class ConversationStore(
     /** What [message] costs in a request: its text whole, its framing, its images by area. */
     fun estimateTokens(message: Message): Int =
         NativeCore.estimateTokens(message.promptText()) + TOKENS_PER_MESSAGE +
-            message.content.filterIsInstance<Block.Image>().sumOf { it.estimatedTokens() }
+            message.content.filterIsInstance<Block.Image>().sumOf { it.estimatedTokens() } +
+            message.toolResults.sumOf { result -> result.images.sumOf { it.estimatedTokens() } }
 
     /**
      * The live window, oldest first. Archived messages are excluded.

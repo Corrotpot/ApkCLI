@@ -927,6 +927,7 @@ private fun AssistantMessage(
                     isError = result?.isError == true,
                     argumentsJson = use.argumentsJson,
                     diffTruncated = result?.diff?.truncated == true,
+                    images = result?.images.orEmpty(),
                 ),
                 // Failed calls open expanded: the error is the point.
                 initiallyExpanded = (result?.isError ?: live?.isError) == true,

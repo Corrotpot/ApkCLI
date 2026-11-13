@@ -141,6 +141,8 @@ class ChatViewModel(
         val partialPrompt: String? = null,
         /** A subagent this call dispatched, as its run stands while it runs; the result's own once it ends. */
         val subagent: SubagentRun? = null,
+        /** Pictures the call returned (`fs_read` of an image), as the model was shown them. */
+        val images: List<Block.Image> = emptyList(),
     )
 
     /**

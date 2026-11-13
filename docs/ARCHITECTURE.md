@@ -1409,6 +1409,17 @@ upright from EXIF, scaled to 1568 px on the long edge, re-encoded as JPEG 85
 counted as width × height / 750 tokens, at most 1600. A model whose endpoint
 says it takes no images gets a warning in the composer, not a refusal.
 
+The agent looks at pictures in the project through `fs_read`: a PNG, JPEG,
+GIF, WebP, BMP or HEIC file comes back as the picture, prepared the same way
+(`ModelImage`, shared with the composer), in `Block.ToolResult.images`. Anthropic
+takes it inside the tool result; Chat Completions takes no image in a `tool`
+message, so it follows the batch's results as a user message that says which
+call returned it; Kiro sends it with the turn's images. Only a model known to
+take images gets one (`ModelSpec.supportsImages`): the agent sends it unasked,
+and a text-only model behind an endpoint that does not say (DeepSeek's) would
+refuse every later request of the chat. Any other model is told the size and
+that it is not shown. The tool's card shows the picture.
+
 ## Share into the app
 
 What another app shares lands in the open project's composer

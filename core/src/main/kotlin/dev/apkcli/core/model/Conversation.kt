@@ -98,6 +98,13 @@ sealed interface Block {
         val diff: DiffSummary? = null,
         /** What a dispatched subagent did, for its card; like [diff], never sent to the model. */
         val subagent: SubagentRun? = null,
+        /**
+         * Pictures the call returned (`fs_read` of a screenshot), sent after
+         * [content]: inside the result where the protocol takes them
+         * (Anthropic), in the next user message where it does not (Chat
+         * Completions), with the turn's images on Kiro.
+         */
+        val images: List<Image> = emptyList(),
     ) : Block
 
     /** See [ToolResult.diff]. [unified] is capped; [truncated] says when it was cut. */

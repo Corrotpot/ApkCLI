@@ -460,7 +460,31 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
             )
         }
 
+        // A `tool` message takes text alone, so pictures a call returned go
+        // in a user message once the batch's results are all in: one between
+        // them would separate results from the call that asked for them.
+        val toolImages = mutableListOf<Block.ToolResult>()
+        fun flushToolImages() {
+            if (toolImages.isEmpty()) return
+            add(
+                buildJsonObject {
+                    put("role", "user")
+                    put(
+                        "content",
+                        buildJsonArray {
+                            toolImages.forEach { result ->
+                                add(textPart("[context]\nWhat ${result.name} returned for call ${result.callId}:"))
+                                result.images.forEach { add(imagePart(it)) }
+                            }
+                        },
+                    )
+                },
+            )
+            toolImages.clear()
+        }
+
         for (message in request.messages) {
+            if (message.role != Role.TOOL) flushToolImages()
             when (message.role) {
                 // The app's word inside a turn (AgentLoop asks a cut reply to go
                 // on): a user turn marked as context, as the other adapters send
@@ -557,9 +581,18 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
                                 put("content", result.content.ifBlank { "(no output)" })
                             },
                         )
+                        if (result.images.isNotEmpty()) toolImages += result
                     }
                 }
             }
+        }
+        flushToolImages()
+    }
+
+    private fun imagePart(image: Block.Image): JsonObject = buildJsonObject {
+        put("type", "image_url")
+        putJsonObject("image_url") {
+            put("url", "data:${image.mimeType};base64,${image.data}")
         }
     }
 
@@ -584,16 +617,7 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
                             },
                         )
                     }
-                    images.forEach { image ->
-                        add(
-                            buildJsonObject {
-                                put("type", "image_url")
-                                putJsonObject("image_url") {
-                                    put("url", "data:${image.mimeType};base64,${image.data}")
-                                }
-                            },
-                        )
-                    }
+                    images.forEach { image -> add(imagePart(image)) }
                 },
             )
         }
