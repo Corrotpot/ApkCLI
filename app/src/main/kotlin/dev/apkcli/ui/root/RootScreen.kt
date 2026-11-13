@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,8 @@ import dev.apkcli.ui.home.ProjectsViewModel
 import dev.apkcli.ui.icons.Codicons
 import dev.apkcli.ui.nav.Destination
 import dev.apkcli.ui.nav.rememberNavigator
+import dev.apkcli.ui.preview.PreviewState
+import dev.apkcli.ui.preview.PreviewTab
 import dev.apkcli.ui.settings.SettingsScreen
 import dev.apkcli.ui.terminal.TerminalTab
 import dev.apkcli.ui.terminal.TerminalViewModel
@@ -103,6 +106,10 @@ fun RootScreen(
     val projects by projectsViewModel.state.collectAsStateWithLifecycle()
 
     val toaster = remember { Toaster() }
+    // The preview's browser lives as long as the activity: a page stays as it
+    // was while the user is in another tab or in Settings.
+    val previewState = remember { PreviewState(context) }
+    DisposableEffect(previewState) { onDispose { previewState.destroy() } }
     var agentSheet by rememberSaveable { mutableStateOf(false) }
     // Settings opened from the mode sheet's "Rules": it scrolls to them.
     var showRules by rememberSaveable { mutableStateOf(false) }
@@ -254,6 +261,14 @@ fun RootScreen(
                             TerminalTab(
                                 viewModel = terminalViewModel,
                                 workspace = chatState.workspace,
+                            )
+                        },
+                        preview = { alone ->
+                            PreviewTab(
+                                state = previewState,
+                                workspace = chatState.workspace,
+                                terminals = { runtime.terminals },
+                                alone = alone,
                             )
                         },
                     )

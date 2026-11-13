@@ -767,6 +767,18 @@
     <string name="explorer_open_file_externally">Open in another app</string>
     <string name="explorer_no_file_manager">No app on this device opens that.</string>
     <string name="terminal_agent_numbered">Agent #%1$d</string>
+    <!-- Preview: the project's site in the app, from a dev server or its own files -->
+    <string name="nav_preview">Preview</string>
+    <string name="preview_address_hint">localhost:5173 or a file</string>
+    <string name="preview_reload">Reload</string>
+    <string name="preview_open_browser">Open in the browser</string>
+    <string name="preview_empty_title">Nothing to show yet</string>
+    <string name="preview_empty_body">Start a dev server in the terminal, such as npm run dev or python -m http.server, and its page shows here. A project with an index.html shows it with no server.</string>
+    <!-- %1$s: an address, e.g. localhost:5173 -->
+    <string name="preview_no_answer">Nothing answers at %1$s. Is the server still running?</string>
+    <string name="preview_retry">Try again</string>
+    <!-- %1$s: a path in the project, e.g. docs/index.html -->
+    <string name="preview_not_in_project">No %1$s in the project.</string>
     <string name="tool_status_asking">Asking</string>
     <string name="note_anthropic">The key is sent as x-api-key, and anthropic-version: 2023-06-01 is added for you. The model list arrives with each model\'s limits and how it thinks: adaptively, with the level in output_config.effort, from Claude 4.6 on; with a token budget before that.</string>
     <string name="note_openai">The key is sent as Authorization: Bearer. The answer limit goes in max_completion_tokens: reasoning models refuse max_tokens. The pro and codex families answer only on /responses, which needs an adapter of its own, so they are marked in the list.</string>

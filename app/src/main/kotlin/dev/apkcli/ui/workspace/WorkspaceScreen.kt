@@ -70,11 +70,11 @@ import dev.apkcli.ui.workbench.WorkbenchLayout
  * The top bar names the project and, under it, the agent's mode — a tap
  * there changes it — then the chat's search, its history and a new chat.
  * Below, the tab picked in the bottom bar: the agent, the files, the
- * terminals.
+ * terminals, the preview of the project's site.
  *
  * Where there is room — a tablet, a foldable, landscape, or always if the
- * user says so — the agent keeps one side and the other shows the files or
- * the terminals, whichever the bar picked last. The arrangement is
+ * user says so — the agent keeps one side and the other shows the files, the
+ * terminals or the preview, whichever the bar picked last. The arrangement is
  * [WorkbenchLayout]'s, the same one Settings › Interface sets.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -105,6 +105,8 @@ fun WorkspaceScreen(
     agent: @Composable () -> Unit,
     files: @Composable () -> Unit,
     terminal: @Composable () -> Unit,
+    /** [alone]: the preview has the screen to itself, not a side beside the chat. */
+    preview: @Composable (alone: Boolean) -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxSize().background(Design.Colors.Bg).statusBarsPadding()) {
         val resolved = layout.resolve(maxWidth, maxHeight - Design.Size.TopBar - Design.Size.BottomNav)
@@ -167,7 +169,13 @@ fun WorkspaceScreen(
                         resolved = resolved,
                         onUpdate = onUpdateLayout,
                         onReset = onResetLayout,
-                        files = { if (layout.side == Pane.TERMINAL) terminal() else files() },
+                        files = {
+                            when (layout.side) {
+                                Pane.TERMINAL -> terminal()
+                                Pane.PREVIEW -> preview(false)
+                                else -> files()
+                            }
+                        },
                         chat = agent,
                     )
                 } else {
@@ -175,6 +183,7 @@ fun WorkspaceScreen(
                         Pane.CHAT -> agent()
                         Pane.FILES -> files()
                         Pane.TERMINAL -> terminal()
+                        Pane.PREVIEW -> preview(true)
                     }
                 }
             }
@@ -297,7 +306,7 @@ private fun FindTopBar(initial: String, onQuery: (String) -> Unit, onSearch: () 
 private class NavItem(val pane: Pane, val icon: ImageVector, val label: Int, val badge: Boolean)
 
 /**
- * `.bottomnav`: three tabs, a pill behind the icon of the one shown, a dot
+ * `.bottomnav`: the tabs, a pill behind the icon of the one shown, a dot
  * when something happened in another — changed files, a running command.
  */
 @Composable
@@ -306,6 +315,7 @@ private fun BottomNav(selected: (Pane) -> Boolean, filesBadge: Boolean, terminal
         NavItem(Pane.CHAT, Codicons.CommentDiscussion, R.string.nav_agent, badge = false),
         NavItem(Pane.FILES, Codicons.Files, R.string.nav_files, badge = filesBadge),
         NavItem(Pane.TERMINAL, Codicons.Terminal, R.string.nav_terminal, badge = terminalBadge),
+        NavItem(Pane.PREVIEW, Codicons.Globe, R.string.nav_preview, badge = false),
     )
     Row(
         Modifier

@@ -20,10 +20,11 @@ enum class SplitOrientation {
 }
 
 /**
- * The workspace's tabs: the agent, the project's files, its terminals. Split,
- * the agent keeps one side and the other shows files or terminals.
+ * The workspace's tabs: the agent, the project's files, its terminals, the
+ * preview of its site. Split, the agent keeps one side and the other shows
+ * one of the rest.
  */
-enum class Pane { FILES, CHAT, TERMINAL }
+enum class Pane { FILES, CHAT, TERMINAL, PREVIEW }
 
 /**
  * Everything about the workbench arrangement the user can change.

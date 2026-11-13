@@ -767,6 +767,18 @@
     <string name="explorer_open_file_externally">Открыть в другом приложении</string>
     <string name="explorer_no_file_manager">На устройстве нет приложения, которое это откроет.</string>
     <string name="terminal_agent_numbered">Агент #%1$d</string>
+    <!-- Просмотр: сайт проекта внутри приложения, с сервера разработки или из его файлов -->
+    <string name="nav_preview">Просмотр</string>
+    <string name="preview_address_hint">localhost:5173 или файл</string>
+    <string name="preview_reload">Обновить</string>
+    <string name="preview_open_browser">Открыть в браузере</string>
+    <string name="preview_empty_title">Пока нечего показать</string>
+    <string name="preview_empty_body">Запустите в терминале сервер разработки, например npm run dev или python -m http.server, и его страница появится здесь. Если в проекте есть index.html, он откроется и без сервера.</string>
+    <!-- %1$s: адрес, например localhost:5173 -->
+    <string name="preview_no_answer">По адресу %1$s никто не отвечает. Сервер ещё запущен?</string>
+    <string name="preview_retry">Повторить</string>
+    <!-- %1$s: путь в проекте, например docs/index.html -->
+    <string name="preview_not_in_project">В проекте нет %1$s.</string>
     <string name="tool_status_asking">Спрашивает</string>
     <string name="note_anthropic">Ключ уходит в x-api-key, заголовок anthropic-version: 2023-06-01 добавляется сам. Список моделей приходит с лимитами и с тем, как каждая думает: с Claude 4.6 — адаптивно, с уровнем в output_config.effort, у более ранних — по бюджету токенов.</string>
     <string name="note_openai">Ключ уходит в Authorization: Bearer. Лимит ответа задаётся max_completion_tokens: рассуждающие модели max_tokens отклоняют. Модели семейств pro и codex работают только через /responses — для них нужен отдельный адаптер, и в списке они помечены.</string>

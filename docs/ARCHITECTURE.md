@@ -1478,6 +1478,26 @@ draws it as a command card, open from the start, and a stopped line keeps what
 its screen showed. While the agent works, a line cannot be sent: its record
 would land in the middle of the turn.
 
+## Preview
+
+The workspace's fourth tab, and a side beside the chat when split, shows the
+project's site in a WebView (`PreviewTab`). A dev server is found where it says
+where it is: the output of the terminals still running, the user's and the
+agent's jobs alike, is read every two seconds for local addresses
+(`PreviewUrls.localUrls`: Vite's `Local: http://localhost:5173/`, Python's
+`http://0.0.0.0:8000/`). With nothing shown, the newest one is loaded, or else
+the project's `index.html`, which needs no server: the project's files are
+served by the WebView itself under `https://project.apkcli.invalid/`
+(`shouldInterceptRequest`), with a path check against the project root and no
+caching. Such a page reloads when the project's files change, after an
+agent's edit and at the end of each turn; a dev server reloads its own pages.
+The address field takes a URL, a port (`5173`), `localhost:3000`, a domain or
+a path in the project. Pages get JavaScript and storage but no `file:` or
+`content:` access, and links to mail, a phone number or a store go to the app
+for them. One WebView lives as long as the activity, so a page keeps its place
+and state while the user is in another tab, and each project remembers the
+address it showed last.
+
 ## Python packages with native code
 
 PyPI has almost no Android wheels, so pip compiles C and Rust extensions on
