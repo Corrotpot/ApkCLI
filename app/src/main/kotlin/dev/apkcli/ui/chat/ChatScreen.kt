@@ -363,6 +363,8 @@ fun ChatScreen(
                                         thinkingOpen = item.message.id in state.openThinking,
                                         thinkingScroll = thinkingScroll(item.message.id),
                                         openPath = openPath,
+                                        // Not where its turn ends: the turn went on past it.
+                                        continued = item.message.id !in turnEnds,
                                     )
                                     if (item.message.id in turnEnds && item.message.createdAt > 0) {
                                         MessageMeta(clock(item.message.createdAt), item.message.model?.substringAfterLast('/'))
@@ -712,8 +714,10 @@ private fun buildRenderList(messages: List<Message>, digests: List<ConversationS
     while (index < messages.size) {
         val message = messages[index]
         seamsBefore(if (message.seq < 0) Long.MAX_VALUE else message.seq)
-        if (message.role == Role.TOOL) {
-            // Orphaned results: the turn was interrupted between the two writes.
+        if (message.role == Role.TOOL || message.role == Role.SYSTEM) {
+            // Orphaned results: the turn was interrupted between the two
+            // writes. And the app's words to the model, never drawn: as an
+            // empty item they still took the list's spacing twice.
             index++
             continue
         }
@@ -816,6 +820,8 @@ private fun AssistantMessage(
     thinkingOpen: Boolean,
     thinkingScroll: ScrollState,
     openPath: (String, Int?) -> Unit,
+    /** More of its turn follows it: a cut reply was asked to go on. */
+    continued: Boolean = false,
 ) {
     // Open if it was open while streaming: closing it as the message lands
     // would shrink the item under the reader.
@@ -881,7 +887,7 @@ private fun AssistantMessage(
             )
         }
 
-        EndNotes(message)
+        EndNotes(message, continued)
     }
 }
 
@@ -892,7 +898,7 @@ private fun AssistantMessage(
  * what the live one did; the failure's reason used to be lost on reopening.
  */
 @Composable
-private fun EndNotes(message: Message) {
+private fun EndNotes(message: Message, continued: Boolean = false) {
     val notices = message.notices
     val failure = message.errorMessage ?: notices.firstOrNull { it.kind == Block.Notice.FAILED }?.text
     if (message.status == MessageStatus.ERROR && failure != null) {
@@ -900,14 +906,17 @@ private fun EndNotes(message: Message) {
     }
     notices.forEach { notice ->
         when (notice.kind) {
+            // Where the turn went on past it, the agent was asked to continue
+            // and did, below; there is nothing for the user to ask.
             Block.Notice.OUTPUT_LIMIT -> EndNote(
                 Codicons.Warning,
-                if (notice.limit > 0) {
-                    stringResource(R.string.chat_notice_output_limit, tokensText(notice.limit))
-                } else {
-                    stringResource(R.string.chat_notice_output_limit_unknown)
+                when {
+                    continued && notice.limit > 0 -> stringResource(R.string.chat_notice_output_limit_continued, tokensText(notice.limit))
+                    continued -> stringResource(R.string.chat_notice_output_limit_continued_unknown)
+                    notice.limit > 0 -> stringResource(R.string.chat_notice_output_limit, tokensText(notice.limit))
+                    else -> stringResource(R.string.chat_notice_output_limit_unknown)
                 },
-                tint = Design.Colors.Warning,
+                tint = if (continued) Design.Colors.TextTertiary else Design.Colors.Warning,
             )
             Block.Notice.FILTERED -> EndNote(Codicons.Warning, stringResource(R.string.chat_notice_filtered), tint = Design.Colors.Warning)
         }

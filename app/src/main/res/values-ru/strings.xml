@@ -440,6 +440,8 @@
     <string name="subagent_output_limit">Последний ответ упёрся в лимит длины: мог оборваться.</string>
     <string name="chat_notice_output_limit">Ответ упёрся в лимит длины (%1$s токенов) и мог оборваться. Попросите продолжить.</string>
     <string name="chat_notice_output_limit_unknown">Ответ упёрся в лимит длины и мог оборваться. Попросите продолжить.</string>
+    <string name="chat_notice_output_limit_continued">Ответ упёрся в лимит длины (%1$s токенов) и продолжается ниже.</string>
+    <string name="chat_notice_output_limit_continued_unknown">Ответ упёрся в лимит длины и продолжается ниже.</string>
     <string name="chat_notice_filtered">Ответ остановлен фильтром содержимого провайдера.</string>
     <string name="chat_notice_stopped">Остановлено, ответ не закончен.</string>
     <string name="approval_title_subagent">Поручить субагенту?</string>

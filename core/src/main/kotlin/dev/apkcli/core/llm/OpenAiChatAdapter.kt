@@ -462,10 +462,14 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
 
         for (message in request.messages) {
             when (message.role) {
+                // The app's word inside a turn (AgentLoop asks a cut reply to go
+                // on): a user turn marked as context, as the other adapters send
+                // it. A request may end on it, and many servers' chat templates
+                // refuse a system message there.
                 Role.SYSTEM -> add(
                     buildJsonObject {
-                        put("role", "system")
-                        put("content", message.text)
+                        put("role", "user")
+                        put("content", "[context]\n${message.text}")
                     },
                 )
 

@@ -185,6 +185,8 @@ class AgentLoop(
         // A provider's "too long" is answered by compacting and sending again,
         // at most MAX_OVERFLOW_RECOVERIES times, instead of ending the turn.
         var overflowRecoveries = 0
+        // Replies cut at the output limit that were asked to go on.
+        var continuations = 0
         // What the user said in this turn: kept verbatim when its own oldest
         // rounds are archived (ContextBudget.planDeep).
         val turnUserSeqs = HashSet<Long>()
@@ -308,6 +310,14 @@ class AgentLoop(
                 }
 
                 if (outcome.toolUses.isEmpty()) {
+                    // Cut at its output limit with nothing to run: asked to go
+                    // on from where it stopped, a few times a turn. It used to
+                    // end the turn with a note telling the user to ask.
+                    if (outcome.cutOff && continuations < MAX_CONTINUATIONS && iterations < config.maxIterations) {
+                        continuations++
+                        askToContinue(config)
+                        continue
+                    }
                     // Sent while this reply streamed: answered in this turn,
                     // by the next round, which takes it from the inbox first.
                     if (config.inbox?.isEmpty() == false && iterations < config.maxIterations) continue
@@ -329,6 +339,23 @@ class AgentLoop(
         }
 
         emit(AgentEvent.TurnFinished(iterations, stopReason))
+    }
+
+    /**
+     * After a reply cut at its output limit: the app's word to go on, stored
+     * so every later request has the same transcript. A [Role.SYSTEM]
+     * message, which the chat does not draw and the adapters send as the
+     * app's context, not as the user's words.
+     */
+    private suspend fun askToContinue(config: TurnConfig) {
+        store.append(
+            Message(
+                id = ConversationStore.newId("m"),
+                sessionId = config.sessionId,
+                role = Role.SYSTEM,
+                content = listOf(Block.Text(CONTINUE_CUT_REPLY)),
+            ),
+        )
     }
 
     /** Store what the user said, under [id]: the turn's own message, or one sent while it ran. */
@@ -1262,6 +1289,14 @@ class AgentLoop(
 
         /** Requests refused as too long that one turn compacts and sends again. */
         private const val MAX_OVERFLOW_RECOVERIES = 2
+
+        /** Replies cut at their output limit that one turn asks to go on; see [askToContinue]. */
+        private const val MAX_CONTINUATIONS = 3
+
+        private const val CONTINUE_CUT_REPLY = "Your last reply was cut off at the output limit. Continue it " +
+            "from exactly where it stopped, mid-sentence if need be: do not repeat what you already " +
+            "wrote and do not start over. If what is left is long, write it in parts, or put it in a " +
+            "file with fs_write."
 
         /** How often a call being written reports its progress, and how much of it goes with the report. */
         private const val PROGRESS_INTERVAL_MS = 250L

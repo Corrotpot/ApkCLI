@@ -1462,8 +1462,10 @@ whole; the agent loop; the terminals; the UI; subagents):
   `ParallelCallsTest`), and the build starts on the emulator and reopens an
   existing chat, but no subagent has been dispatched from the app, and no reply
   stopped or cut at its limit there.
-* A reply cut at its output limit is not continued by itself; the note under it
-  says to ask.
+* A reply cut at its output limit with no call to run is asked to go on, three
+  times a turn at most, by a `Role.SYSTEM` message the chat does not draw and
+  the adapters send as the app's context. Past three, the note under the last
+  one says to ask; under the ones that went on it says so.
 * The terminal renders lines, not a grid, so full-screen programs are reported
   rather than drawn. Input is a line at a time, plus keys for Ctrl-C, Ctrl-D,
   Tab, history and Esc.

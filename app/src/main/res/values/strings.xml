@@ -436,6 +436,8 @@
     <!-- Under a reply that ended other than by finishing. %1$s: the output limit, e.g. 32,000 -->
     <string name="chat_notice_output_limit">The reply stopped at its output limit (%1$s tokens) and may be cut off. Ask it to continue.</string>
     <string name="chat_notice_output_limit_unknown">The reply stopped at its output limit and may be cut off. Ask it to continue.</string>
+    <string name="chat_notice_output_limit_continued">The reply reached its output limit (%1$s tokens); it goes on below.</string>
+    <string name="chat_notice_output_limit_continued_unknown">The reply reached its output limit; it goes on below.</string>
     <string name="chat_notice_filtered">The provider\'s content filter stopped this reply.</string>
     <string name="chat_notice_stopped">Stopped before the reply was finished.</string>
     <string name="approval_title_subagent">Hand a task to a subagent?</string>
