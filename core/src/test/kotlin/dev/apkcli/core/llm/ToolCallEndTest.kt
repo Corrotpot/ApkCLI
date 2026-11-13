@@ -1,5 +1,10 @@
 package dev.apkcli.core.llm
 
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
@@ -28,17 +33,25 @@ class ToolCallEndTest {
         return events
     }
 
-    private fun call(index: Int, id: String?, name: String?, arguments: String): String {
-        val head = buildString {
-            append("\"index\":$index")
-            if (id != null) append(",\"id\":\"$id\"")
+    /** One streamed fragment of a call: its id and name come with the first only. */
+    private fun call(index: Int, id: String?, name: String?, arguments: String): String = buildJsonObject {
+        putJsonArray("choices") {
+            addJsonObject {
+                putJsonObject("delta") {
+                    putJsonArray("tool_calls") {
+                        addJsonObject {
+                            put("index", index)
+                            if (id != null) put("id", id)
+                            putJsonObject("function") {
+                                if (name != null) put("name", name)
+                                put("arguments", arguments)
+                            }
+                        }
+                    }
+                }
+            }
         }
-        val function = buildString {
-            if (name != null) append("\"name\":\"$name\",")
-            append("\"arguments\":${'"'}${arguments.replace("\"", "\\\"")}${'"'}")
-        }
-        return """{"choices":[{"delta":{"tool_calls":[{$head,"function":{$function}}]}}]}"""
-    }
+    }.toString()
 
     @Test
     fun `the first call ends when the second begins, and the second at the end`() {
