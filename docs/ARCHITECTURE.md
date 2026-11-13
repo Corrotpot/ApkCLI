@@ -1393,6 +1393,20 @@ upright from EXIF, scaled to 1568 px on the long edge, re-encoded as JPEG 85
 counted as width × height / 750 tokens, at most 1600. A model whose endpoint
 says it takes no images gets a warning in the composer, not a refusal.
 
+## Share into the app
+
+What another app shares lands in the open project's composer
+(`IncomingShare`, `ChatViewModel.receiveShare`). Words go after what is
+typed, images are attached as from the picker, and a text file of up to
+100 KB is pasted in as a code block under its name: every later request in
+the chat carries it again. Anything else is named as not added. The app is
+offered for `text/*` and `image/*` only. With no project open, the share is
+read at once, while the sender's permission holds, and waits in the composer
+of the project opened next. Only `content:` URIs are read: a `file:` one
+would be opened with the app's own rights, conversation database included.
+An Activity recreated or reopened from Recents is handed the intent it was
+started with again, so only a fresh start takes the share in it.
+
 ## Python packages with native code
 
 PyPI has almost no Android wheels, so pip compiles C and Rust extensions on

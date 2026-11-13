@@ -294,6 +294,11 @@ class ChatViewModel(
          * is not lost: the composer clears itself on send.
          */
         val returnedDraft: String? = null,
+        /**
+         * Words shared from another app, on their way to the composer: they
+         * go after what is typed there, the way a paste does.
+         */
+        val sharedText: String? = null,
         /** Messages whose reasoning was open when they finished streaming; they land open. */
         val openThinking: Set<String> = emptySet(),
         /** Images to send with the next message. */
@@ -648,6 +653,8 @@ class ChatViewModel(
 
     fun consumeReturnedDraft() = _state.update { it.copy(returnedDraft = null) }
 
+    fun consumeSharedText() = _state.update { it.copy(sharedText = null) }
+
     /* -------------------------------------------------------------- alerts */
 
     /**
@@ -756,6 +763,38 @@ class ChatViewModel(
                         changesMessage = if (prepared == null) UiText.res(R.string.chat_attach_unreadable) else current.changesMessage,
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * What another app shared, made ready for the next message: its words go
+     * after what is typed, its images are attached, and a text file is pasted
+     * in under its name (SharedFiles). What cannot go into a message is
+     * named above the composer.
+     */
+    fun receiveShare(share: IncomingShare) {
+        viewModelScope.launch {
+            val resolver = appContext.contentResolver
+            val files = withContext(Dispatchers.IO) {
+                share.streams.map { uri ->
+                    runCatching { SharedFiles.take(resolver, uri) }
+                        .onFailure { Log.w(TAG, "could not read shared $uri", it) }
+                        .getOrElse { SharedFiles.Taken.Skipped(uri.lastPathSegment ?: uri.toString()) }
+                }
+            }
+            val words = listOfNotNull(share.text) + files.filterIsInstance<SharedFiles.Taken.Text>().map { it.pasted }
+            if (words.isNotEmpty()) {
+                _state.update { it.copy(sharedText = (listOfNotNull(it.sharedText) + words).joinToString("\n\n")) }
+            }
+            val images = files.filterIsInstance<SharedFiles.Taken.Image>().map { it.uri }
+            if (images.isNotEmpty()) attachImages(images)
+            val skipped = files.filterIsInstance<SharedFiles.Taken.Skipped>().map { it.name }
+            if (skipped.isNotEmpty()) {
+                val names = skipped.take(SHARE_NAMES_SHOWN).joinToString(", ") +
+                    if (skipped.size > SHARE_NAMES_SHOWN) ", …" else ""
+                val limit = UiText.res(R.string.size_kb, (SharedFiles.MAX_TEXT_BYTES / 1024).toString())
+                _state.update { it.copy(changesMessage = UiText.res(R.string.share_not_added, names, limit)) }
             }
         }
     }
@@ -2401,6 +2440,9 @@ class ChatViewModel(
 
         /** How much of a reply the "the agent replied" alert shows. */
         private const val ALERT_TEXT_CHARS = 300
+
+        /** Shared files not added are named up to this many; the line above the composer is short. */
+        private const val SHARE_NAMES_SHOWN = 3
 
         /**
          * Delta coalescing interval.

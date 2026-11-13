@@ -149,7 +149,8 @@ internal object ImageAttachments {
         return out
     }
 
-    private fun displayName(resolver: ContentResolver, uri: Uri): String? = runCatching {
+    /** The name the provider gives the file, e.g. `Screenshot_20261022.png`. */
+    fun displayName(resolver: ContentResolver, uri: Uri): String? = runCatching {
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         }

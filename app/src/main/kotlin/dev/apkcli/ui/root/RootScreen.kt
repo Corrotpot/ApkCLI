@@ -29,6 +29,7 @@ import dev.apkcli.R
 import dev.apkcli.di.ServiceLocator
 import dev.apkcli.ui.chat.ChatScreen
 import dev.apkcli.ui.chat.ChatViewModel
+import dev.apkcli.ui.chat.IncomingShare
 import dev.apkcli.ui.chat.sheets.AgentSheet
 import dev.apkcli.ui.chat.sheets.ApprovalSheet
 import dev.apkcli.ui.chat.sheets.HistorySheets
@@ -69,9 +70,16 @@ import java.io.File
  * screen: a running turn and unsaved editor buffers must survive going to
  * Settings and coming back, and the main menu is where the user goes
  * between projects.
+ *
+ * [share] is what another app shared, held by the Activity until it is
+ * taken here ([onShareTaken]).
  */
 @Composable
-fun RootScreen(modifier: Modifier = Modifier) {
+fun RootScreen(
+    share: IncomingShare?,
+    onShareTaken: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val navigator = rememberNavigator(Destination.Home)
     val runtime = ServiceLocator.runtime(context)
@@ -126,6 +134,24 @@ fun RootScreen(modifier: Modifier = Modifier) {
             explorerViewModel.reveal(path)
             explorerViewModel.showTree(false)
         }
+    }
+
+    // Shared from another app: into the open project's composer. With none
+    // open, once the last one is restored, it waits there, already read
+    // while the sender's permission lasts, for the project opened next.
+    val shareWaits = stringResource(R.string.share_open_project)
+    LaunchedEffect(share, chatState.starting) {
+        val incoming = share ?: return@LaunchedEffect
+        if (chatState.starting) return@LaunchedEffect
+        chatViewModel.receiveShare(incoming)
+        if (chatState.workspace != null) {
+            navigator.navigate(Destination.Workspace)
+            workbenchViewModel.update { it.copy(focus = Pane.CHAT) }
+        } else {
+            navigator.navigate(Destination.Home)
+            toaster.show(shareWaits, Codicons.Info)
+        }
+        onShareTaken()
     }
 
     BackHandler(enabled = navigator.canGoBack) { navigator.pop() }

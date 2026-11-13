@@ -86,6 +86,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/*" />
             </intent-filter>
+
+            <!--
+              Share from another app: words go into the composer, images are
+              attached, a text file is pasted in (IncomingShare). Text and
+              images only, so the app is not offered for a video or an archive
+              it could not put into a message.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
 
         <!--

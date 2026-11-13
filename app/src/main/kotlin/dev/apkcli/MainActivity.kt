@@ -2,6 +2,7 @@ package dev.apkcli
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,9 +13,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import dev.apkcli.core.service.AgentService
+import dev.apkcli.ui.chat.IncomingShare
 import dev.apkcli.ui.locale.AppLocales
 import dev.apkcli.ui.root.RootScreen
 import dev.apkcli.ui.theme.ApkCliTheme
@@ -45,6 +50,12 @@ class MainActivity : ComponentActivity() {
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    /**
+     * What another app shared, until the screens take it (RootScreen). It
+     * can come before the store is up; the screens wait for that.
+     */
+    private var share by mutableStateOf<IncomingShare?>(null)
+
     /** In-app language on Android 12 and older; see [AppLocales]. */
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocales.wrap(newBase))
@@ -56,6 +67,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // Only a fresh start takes the share it was started with: recreated,
+        // or reopened from Recents, the Activity gets that intent again.
+        val fromRecents = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (savedInstanceState == null && !fromRecents) share = IncomingShare.from(intent)
+
         askForNotificationPermission()
 
         setContent {
@@ -64,10 +80,16 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    RootScreen()
+                    RootScreen(share = share, onShareTaken = { share = null })
                 }
             }
         }
+    }
+
+    /** singleTask: a share while the app is running lands here, not in a second copy. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        IncomingShare.from(intent)?.let { share = it }
     }
 
     override fun onStart() {

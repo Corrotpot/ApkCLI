@@ -279,6 +279,14 @@ fun ChatScreen(
         }
     }
 
+    // Shared from another app: after what was typed, the way a paste goes.
+    LaunchedEffect(state.sharedText) {
+        state.sharedText?.let { shared ->
+            draft = if (draft.isBlank()) shared else "${draft.trimEnd()}\n\n$shared"
+            viewModel.consumeSharedText()
+        }
+    }
+
     // The match to show changed: the transcript stops following its end,
     // brings the match's item on screen if it is not, and then the text
     // that holds the match shows it, some lines in from the edge (FindReveal).

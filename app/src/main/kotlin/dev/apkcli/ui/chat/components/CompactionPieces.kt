@@ -496,7 +496,7 @@ private fun codeSpan(text: String): String {
 }
 
 /** [text] as a code block, kept exactly, fenced by more backticks than it holds in a row. */
-private fun fenced(text: String): String {
+internal fun fenced(text: String): String {
     val fence = "`".repeat(maxOf(3, longestRun(text, '`') + 1))
     return "$fence\n${text.trimEnd()}\n$fence"
 }
