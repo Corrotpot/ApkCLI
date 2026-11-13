@@ -1273,7 +1273,7 @@ class AgentLoop(
         private const val MAX_DIFF_LINES = 400
         private const val MAX_DIFF_CHARS = 48 * 1024
 
-        /** Remembered facts put in the prompt, per scope. */
-        private const val MAX_MEMORY_CHARS = 6_000
+        /** Remembered facts put in the prompt, per scope; see [MemoryScopes.MAX_SCOPE_CHARS]. */
+        private const val MAX_MEMORY_CHARS = MemoryScopes.MAX_SCOPE_CHARS
     }
 }

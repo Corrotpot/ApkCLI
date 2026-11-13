@@ -1222,11 +1222,19 @@ and answer. The turn still streaming is not.
 
 ## Memory
 
-Two scopes of short facts (`memory_write`, at most 500 characters each): one
-per project, keyed by its directory, and one for every project. Both go into
-the system prompt on every request, under the project's instruction file
-(`AGENTS.md` and the other names in `ProjectInstructions.FILES`) — the global
-scope used to be kept but never shown. Memory in the workspace's ⋮ menu opens
+Two scopes of facts: one per project, keyed by its directory, and one for
+every project. Both go into the system prompt on every request, under the
+project's instruction file (`AGENTS.md` and the other names in
+`ProjectInstructions.FILES`) — the global scope used to be kept but never
+shown.
+
+A fact may be 2 000 characters, a short paragraph, so it can carry the reason
+it holds rather than a bare rule that reads as arbitrary months later; 500,
+about three lines, was too few for that. A scope puts 12 000 characters in the
+prompt and then says how many facts are left. Both numbers are in
+`MemoryScopes`, which the tool, the prompt and the sheet read: the note cap
+used to be declared twice, in core and in the UI, and the two had to be kept
+equal by hand. Memory in the workspace's ⋮ menu opens
 them in a sheet for viewing and editing, and creates or opens `AGENTS.md` for
 longer notes.
 
@@ -1316,7 +1324,8 @@ overruns a PTY's channel, and a line longer than 4 000 characters.
 | A subagent's record | 150 steps, 2 000 characters a step, 20 000 of the answer | counted, and said on its card |
 | Kiro's text for a call or result it cannot pair | 4 000 characters | how many more there were |
 | A Kiro request | 600 000 bytes | a refusal is read as too long |
-| Remembered facts in the prompt | 6 000 characters a scope | how many more, and `memory_read` |
+| One remembered fact | 2 000 characters (`MemoryScopes.MAX_NOTE_CHARS`) | refused; AGENTS.md takes longer notes |
+| Remembered facts in the prompt | 12 000 characters a scope | how many more, and `memory_read` |
 | The project's instruction file | 32 KB, to a whole line | the prompt says where the rest begins, the memory sheet that it is cut |
 
 What the pass found, besides what is described above (Counted whole, sent

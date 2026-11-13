@@ -278,18 +278,20 @@ class MemoryWriteTool : Tool {
         not what the code already says plainly; conversation_search finds details of
         past conversations.
 
-        Both scopes go into your system prompt on every request, so keep keys short and
-        values to a sentence or two; values over 500 characters are refused. Longer
-        project notes belong in AGENTS.md at the project root, which is loaded into the
-        prompt too (its first 32 KB). Writing an existing key replaces it. No approval is
-        asked; the user sees and edits memory in the app.
+        Both scopes go into your system prompt on every request, so keep keys short.
+        A value may be a sentence or a short paragraph — write the reason, not just
+        the rule, since a fact without it reads as arbitrary later; values over
+        ${MemoryScopes.MAX_NOTE_CHARS} characters are refused. Longer project notes belong in AGENTS.md at
+        the project root, which is loaded into the prompt too (its first 32 KB).
+        Writing an existing key replaces it. No approval is asked; the user sees and
+        edits memory in the app.
 
         Output: a one-line confirmation.
     """.trimIndent()
 
     override val parameters = Schema.obj(required = listOf("key", "value")) {
         string("key", "Short identifier, e.g. build-command, test-convention.")
-        string("value", "The fact. One or two sentences.")
+        string("value", "The fact, with the reason it holds: a sentence or a short paragraph.")
         boolean("global", "Remember across all projects instead of just this one.", default = false)
     }
 
@@ -299,10 +301,10 @@ class MemoryWriteTool : Tool {
         val value = args.str("value")?.trim()?.takeIf { it.isNotEmpty() }
             ?: return ToolResult.error("'value' is required. To forget a key, use memory_forget.")
 
-        if (value.length > MAX_VALUE_CHARS) {
+        if (value.length > MemoryScopes.MAX_NOTE_CHARS) {
             return ToolResult.error(
                 "That value is ${value.length} characters. Memory is injected into every " +
-                    "future prompt for this project, so keep entries under $MAX_VALUE_CHARS. " +
+                    "future prompt for this project, so keep entries under ${MemoryScopes.MAX_NOTE_CHARS}. " +
                     "Put long content in a file instead and remember the path.",
             )
         }
@@ -311,10 +313,6 @@ class MemoryWriteTool : Tool {
         return ToolResult.ok(
             if (args.bool("global", false)) "Remembered '$key' for all projects." else "Remembered '$key' for this project.",
         )
-    }
-
-    private companion object {
-        const val MAX_VALUE_CHARS = 500
     }
 }
 

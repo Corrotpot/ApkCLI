@@ -662,7 +662,7 @@
     <string name="model_source_full">Список и лимиты пришли от сервера.</string>
     <string name="model_source_ids">Сервер отдаёт только id моделей, поэтому окно контекста — осторожное значение, пока ошибка переполнения не сообщит настоящее.</string>
     <string name="nav_agent">Агент</string>
-    <string name="note_body">Короткий факт, который агент должен держать в голове.</string>
+    <string name="note_body">Факт, который агент должен держать в голове, и почему он верен.</string>
     <string name="note_edit">Изменить заметку</string>
     <string name="note_key_hint">Агент видит его как тему заметки и по нему же её обновляет.</string>
     <string name="note_key_placeholder">запуск</string>
@@ -670,7 +670,7 @@
     <string name="note_scope">Где помнить</string>
     <string name="note_scope_global_hint">Во всех проектах, включая новые.</string>
     <string name="note_scope_project_hint">Только в проекте %1$s.</string>
-    <string name="note_value_placeholder">Одно-два предложения</string>
+    <string name="note_value_placeholder">Предложение или абзац с причиной</string>
     <string name="presets_added">уже есть</string>
     <string name="presets_body">Остаётся вставить ключ: адрес, формат запросов и заголовки у схемы уже прописаны.</string>
     <string name="presets_title">Новое подключение</string>

@@ -660,7 +660,7 @@
     <string name="model_source_full">The list and the limits came from the server.</string>
     <string name="model_source_ids">The server lists model ids only, so the context window is a cautious default until an overflow error tells the real one.</string>
     <string name="nav_agent">Agent</string>
-    <string name="note_body">A short fact the agent should keep in mind.</string>
+    <string name="note_body">A fact the agent should keep in mind, and why it holds.</string>
     <string name="note_edit">Edit the note</string>
     <string name="note_key_hint">The agent reads it as the note\'s topic and updates the note by it.</string>
     <string name="note_key_placeholder">run</string>
@@ -668,7 +668,7 @@
     <string name="note_scope">Where to remember</string>
     <string name="note_scope_global_hint">In every project, new ones included.</string>
     <string name="note_scope_project_hint">Only in the project %1$s.</string>
-    <string name="note_value_placeholder">A sentence or two</string>
+    <string name="note_value_placeholder">A sentence, or a paragraph with the reason</string>
     <string name="presets_added">already added</string>
     <string name="presets_body">All that is left is the key: the address, the request format and the headers are already in the scheme.</string>
     <string name="presets_title">New connection</string>

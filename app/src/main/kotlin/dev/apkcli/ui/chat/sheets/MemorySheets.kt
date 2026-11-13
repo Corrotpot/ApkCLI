@@ -15,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.apkcli.R
+import dev.apkcli.core.agent.MemoryScopes
 import dev.apkcli.core.agent.ProjectInstructions
 import dev.apkcli.ui.chat.ChatViewModel
 import dev.apkcli.ui.components.Btn
@@ -252,6 +253,9 @@ private fun NoteSheet(
                 placeholder = stringResource(R.string.note_value_placeholder),
                 singleLine = false,
                 minLines = 3,
+                // A note may be a paragraph now; six lines cut one off mid-thought
+                // and the box scrolled a sentence at a time.
+                maxLines = 14,
                 error = tooLong,
                 helper = if (tooLong) {
                     stringResource(R.string.memory_value_long, MAX_VALUE_CHARS)
@@ -277,5 +281,9 @@ private fun NoteSheet(
     }
 }
 
-/** The same cap memory_write applies, so the agent can always rewrite what the user wrote. */
-private const val MAX_VALUE_CHARS = 500
+/**
+ * The cap memory_write applies, so the agent can always rewrite what the user
+ * wrote and the user can always rewrite the agent's. One constant for both,
+ * in core: the two used to be separate 500s that had to be kept equal by hand.
+ */
+private const val MAX_VALUE_CHARS = MemoryScopes.MAX_NOTE_CHARS
