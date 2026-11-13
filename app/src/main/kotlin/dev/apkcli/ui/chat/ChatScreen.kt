@@ -78,6 +78,7 @@ import dev.apkcli.ui.chat.components.InfoLine
 import dev.apkcli.ui.chat.components.SubagentArgs
 import dev.apkcli.ui.chat.components.SubagentFind
 import dev.apkcli.ui.chat.components.KeyNoticeCard
+import dev.apkcli.ui.chat.components.MessageMeta
 import dev.apkcli.ui.chat.components.PlanCard
 import dev.apkcli.ui.chat.components.ThinkingBlock
 import dev.apkcli.ui.chat.components.ToolCallCard
@@ -106,6 +107,7 @@ import dev.apkcli.ui.components.Spinner
 import dev.apkcli.ui.components.LocalToaster
 import dev.apkcli.ui.icons.Codicons
 import dev.apkcli.ui.text.reasoningLevelLabel
+import dev.apkcli.ui.text.rememberMessageClock
 import dev.apkcli.ui.text.resolve
 import dev.apkcli.ui.text.tokensText
 import dev.apkcli.ui.theme.Design
@@ -162,6 +164,11 @@ fun ChatScreen(
     // restored session shows the same success/failure state the live one did;
     // and a seam after the last message each compaction folded.
     val rendered = remember(state.messages, state.digests) { buildRenderList(state.messages, state.digests) }
+    // The line under a reply: only once its turn is over, so it is not drawn
+    // under one round and then moved under the next.
+    val runningSince = state.turnStartedAt.takeIf { state.turnRunning }
+    val turnEnds = remember(rendered, runningSince) { turnEnds(rendered.map { it.message }, runningSince) }
+    val clock = rememberMessageClock()
 
     // Find in the chat: the matches in what the transcript draws, found off
     // the main thread whenever the words or the transcript change.
@@ -345,16 +352,22 @@ fun ChatScreen(
                                         onRestore = { viewModel.askRestoreCheckpoint(item.message.id) },
                                     )
                                     UserBubble(item.message)
+                                    item.message.createdAt.takeIf { it > 0 }?.let { MessageMeta(clock(it), model = null, end = true) }
                                 }
                                 Role.DIGEST -> item.digest?.let { CompactionSeam(it) }
-                                Role.ASSISTANT -> AssistantMessage(
-                                    message = item.message,
-                                    results = item.results,
-                                    inFlight = state.inFlightTools,
-                                    thinkingOpen = item.message.id in state.openThinking,
-                                    thinkingScroll = thinkingScroll(item.message.id),
-                                    openPath = openPath,
-                                )
+                                Role.ASSISTANT -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    AssistantMessage(
+                                        message = item.message,
+                                        results = item.results,
+                                        inFlight = state.inFlightTools,
+                                        thinkingOpen = item.message.id in state.openThinking,
+                                        thinkingScroll = thinkingScroll(item.message.id),
+                                        openPath = openPath,
+                                    )
+                                    if (item.message.id in turnEnds && item.message.createdAt > 0) {
+                                        MessageMeta(clock(item.message.createdAt), item.message.model?.substringAfterLast('/'))
+                                    }
+                                }
                                 Role.SYSTEM, Role.TOOL -> Unit
                             }
                         }
@@ -721,6 +734,31 @@ private fun buildRenderList(messages: List<Message>, digests: List<ConversationS
     // After everything: /compact folds the whole conversation.
     while (nextSeam < seams.size) items += seamItem(seams[nextSeam++])
     return items
+}
+
+/**
+ * The assistant messages that end a turn, as [buildRenderList] lays the
+ * messages out: the last one before the user's next message, and the last of
+ * all unless it belongs to the turn running since [runningSince] — written
+ * since then. In the moment after sending, before the turn's own message is
+ * in the list, the last reply is the finished turn's and keeps its line,
+ * which would otherwise go and come back. Seams between turns do not count.
+ */
+internal fun turnEnds(messages: List<Message>, runningSince: Long?): Set<String> {
+    val ends = HashSet<String>()
+    var last: Message? = null
+    for (message in messages) {
+        when (message.role) {
+            Role.USER -> {
+                last?.let { ends += it.id }
+                last = null
+            }
+            Role.ASSISTANT -> last = message
+            else -> Unit
+        }
+    }
+    last?.let { if (runningSince == null || it.createdAt in 1 until runningSince) ends += it.id }
+    return ends
 }
 
 /** A seam's place in the list: an item of its own, keyed apart from every message. */

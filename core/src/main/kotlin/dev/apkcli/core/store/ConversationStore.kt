@@ -254,6 +254,7 @@ class ConversationStore(
                 "text" to flattened,
                 "tokens" to tokens,
                 "pinned" to message.pinned,
+                "model" to message.model,
             ),
             // On the turn's critical path: a tool result waits on it, and the
             // background pool's threads are the ones Android throttles.
@@ -426,6 +427,8 @@ class ConversationStore(
         tokens = int("tokens"),
         pinned = bool("pinned"),
         archived = bool("archived"),
+        // Kept since schema 2; null for the messages stored before it.
+        model = str("model"),
     )
 
     private fun encodeBlocks(blocks: List<Block>) =

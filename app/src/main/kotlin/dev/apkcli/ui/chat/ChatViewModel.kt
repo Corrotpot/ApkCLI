@@ -95,6 +95,8 @@ class ChatViewModel(
         val iteration: Int = 1,
         /** When the message started, for "Thinking · 12 s". */
         val startedAt: Long = System.currentTimeMillis(),
+        /** The model writing it, for the line under a reply stopped midway. */
+        val model: String? = null,
     )
 
     data class LiveToolCall(
@@ -299,6 +301,12 @@ class ChatViewModel(
         val queued: List<Queued> = emptyList(),
         /** A turn is running that takes messages sent meanwhile; a manual /compact does not. */
         val turnRunning: Boolean = false,
+        /**
+         * When the latest turn was sent. A reply stored before it is a
+         * finished turn's, even while the new one runs: its message is not
+         * in [messages] yet in the moment after sending.
+         */
+        val turnStartedAt: Long = 0,
         /** Images being read and scaled; the composer shows a placeholder for each. */
         val preparingAttachments: Int = 0,
         /** A project being brought in, or why the last one could not be. */
@@ -845,6 +853,7 @@ class ChatViewModel(
             it.copy(
                 busy = true,
                 turnRunning = true,
+                turnStartedAt = System.currentTimeMillis(),
                 error = null,
                 compactionNote = null,
                 compaction = null,
@@ -961,6 +970,7 @@ class ChatViewModel(
         role = Role.ASSISTANT,
         status = MessageStatus.ABORTED,
         createdAt = streaming.startedAt,
+        model = streaming.model,
         content = buildList {
             if (streaming.thinking.isNotBlank()) add(Block.Thinking(streaming.thinking))
             if (streaming.text.isNotBlank()) add(Block.Text(streaming.text))
@@ -1145,6 +1155,7 @@ class ChatViewModel(
                         streaming = Streaming(
                             messageId = event.messageId,
                             iteration = event.iteration,
+                            model = event.model,
                         ),
                         // The app's own compaction is over by the time a request goes.
                         compaction = it.compaction?.takeIf { run -> run.manual },

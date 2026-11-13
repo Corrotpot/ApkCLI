@@ -186,6 +186,42 @@ fun UserBubble(message: Message, modifier: Modifier = Modifier) {
 /** 85 % of a phone's width; on a wide pane the bubble still reads as a bubble. */
 private val BubbleMax = 520.dp
 
+/* ================================================================= meta */
+
+/**
+ * `.meta`: when a message was written and, under a reply, the model that
+ * wrote it — "13.11.2026, 19:50, deepseek-v4.1-flash" — in caption type,
+ * tertiary. Always one line: a long model name gives way with an ellipsis,
+ * the time never does. [end] puts it under the user's bubble, at its edge.
+ */
+@Composable
+fun MessageMeta(time: String, model: String?, modifier: Modifier = Modifier, end: Boolean = false) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = if (end) 2.dp else 0.dp),
+        horizontalArrangement = if (end) Arrangement.End else Arrangement.Start,
+    ) {
+        Text(
+            time,
+            style = Design.Type.Caption,
+            color = Design.Colors.TextTertiary,
+            maxLines = 1,
+            softWrap = false,
+        )
+        if (!model.isNullOrBlank()) {
+            Text(
+                stringResource(R.string.message_meta_model, model),
+                style = Design.Type.Caption,
+                color = Design.Colors.TextTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+    }
+}
+
 @Composable
 private fun SentImage(key: String, image: Block.Image) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, key) {

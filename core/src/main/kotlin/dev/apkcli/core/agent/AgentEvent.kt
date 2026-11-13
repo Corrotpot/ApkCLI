@@ -24,8 +24,11 @@ sealed interface AgentEvent {
     /**
      * An assistant message exists and will be filled in by the deltas that
      * follow. Emitted before the first token so the UI can show the bubble.
+     *
+     * @param model the model writing it, for a reply stopped before it was
+     *   stored whole, which the chat then draws from what streamed.
      */
-    data class AssistantStarted(val messageId: String, val iteration: Int) : AgentEvent
+    data class AssistantStarted(val messageId: String, val iteration: Int, val model: String? = null) : AgentEvent
 
     data class TextDelta(val messageId: String, val text: String) : AgentEvent
 

@@ -563,7 +563,7 @@ Successfully installed aiofiles-24.1.0 aiogram-3.31.0 pydantic-2.12.5 python-dot
 
 /** Turns, as ChatScreen lays them out: a user bubble, then the agent's parts. */
 function transcript() {
-  return [
+  return stamped([
     { role: 'user', text: 'Сделай эхо-бота на aiogram 3. Токен бери из .env' },
     { role: 'agent', parts: [
       { t: 'think', ms: 9400, text: 'aiogram 3 — это Router и Dispatcher, декораторы на роутере. Для /start нужен CommandStart(), для всего остального — message() без фильтра, иначе он перехватит и команды.\n\nТокен читаю через python-dotenv: load_dotenv() в main(), os.environ["BOT_TOKEN"]. Файл .env в .gitignore, рядом положу .env.example.\n\nСначала проверю, что aiogram ставится: на Android колёса pydantic собираются долго, лучше узнать это сразу.' },
@@ -607,7 +607,7 @@ function transcript() {
         body: { kind: 'term', text: '\u001b[32m.\u001b[0m                                                                  [100%]\n\u001b[32m1 passed\u001b[0m in 0.40s' } },
       { t: 'text', md: 'Причина — роутер был подключён дважды: `dp.include_router(router)` стоял в `bot/main.py` две строки подряд, и каждое сообщение проходило обработчики два раза. Убрал вторую строку, тесты зелёные.' },
     ] },
-  ];
+  ], new Date(2026, 10, 13, 19, 30).getTime(), CATALOGUE.openrouter[0].id);
 }
 
 /*
@@ -1041,7 +1041,9 @@ function pastChat(id, at, exchanges, context) {
     turns.push({ role: 'user', text: ask });
     turns.push({ role: 'agent', parts: [{ t: 'text', md: answer }] });
   }
-  return { id, at, title: chatTitle(exchanges[0][0]), turns, changes: null, context };
+  // Ending when the chat was last used.
+  const timed = stamped(turns, at - exchanges.length * 4 * 60000, CATALOGUE.openrouter[0].id);
+  return { id, at, title: chatTitle(exchanges[0][0]), turns: timed, changes: null, context };
 }
 
 /** telegram-bot's chats: the open one with the long transcript, and six before it. */
@@ -1789,9 +1791,38 @@ function turnHtml(turn, i) {
       + `<div class="checkpoint t-label-tiny">${ic('location', T.size.iconTiny)}<span>Чекпоинт</span><i></i>`
       + `<button class="t-label-tiny" data-a="sheet-checkpoint" data-d="${i}"${busy ? ' disabled' : ''}>Восстановить</button></div>`
       + `<div class="u t-body${turn.text ? '' : ' only-imgs'}">${imgs}${esc(turn.text)}</div>`
+      + metaHtml(turn)
       + '</div>';
   }
-  return `<div class="a">${turn.parts.map((p, j) => partHtml(p, `${i}.${j}`)).join('')}</div>`;
+  return '<div class="turn-a">'
+    + `<div class="a">${turn.parts.map((p, j) => partHtml(p, `${i}.${j}`)).join('')}</div>`
+    + metaHtml(turn)
+    + '</div>';
+}
+
+/**
+ * `.meta`: when a message was written and, under a reply, the model that
+ * wrote it, as ChatScreen's MessageMeta draws it. One line: a long model name
+ * ends in an ellipsis, the time never does. A finished turn only: the one
+ * running is liveHtml's, without it.
+ */
+function metaHtml(turn) {
+  if (!turn.at) return '';
+  const when = new Date(turn.at).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const model = turn.role === 'agent' && turn.model ? `<span class="model">, ${esc(shortModel(turn.model))}</span>` : '';
+  return `<div class="meta t-caption"><span class="when">${esc(when)}</span>${model}</div>`;
+}
+
+/** Sample turns with the time the store gives each and, on replies, the model; a few minutes apart. */
+function stamped(turns, start, model) {
+  let at = start;
+  return turns.map((t) => {
+    if (t.role === 'seam') return t;
+    at += (t.role === 'user' ? 3 : 1) * 60000;
+    return t.role === 'agent' ? { ...t, at, model } : { ...t, at };
+  });
 }
 
 function partHtml(p, key) {
@@ -3117,7 +3148,7 @@ function demoSub(w, state) {
     sub.steps = SIM_SUB.steps.slice(0, 3).map((s, k) => ({ ...s, ok: k < 2, run: k === 2 }));
   }
   w.demo = { from: w.chat.length };
-  w.chat.push({ role: 'user', text: 'Проверь тесты', imgs: [] });
+  w.chat.push({ role: 'user', text: 'Проверь тесты', imgs: [], at: Date.now() });
   w.live = { demo: true, started: Date.now() - 4000, parts: [{ t: 'think', ms: 2600, text: LIVE_THINK }, { t: 'text', md: LIVE_TEXT }, sub] };
   w.busy = true;
   if (state === 'live-open') w.open['live.2'] = true;
@@ -4027,7 +4058,7 @@ async function startTurn() {
   if (slash && slash.exact) { runCommand(w, slash.exact.name, slash.args); return; }
   dropTransientSeams(w);
   const imgs = w.attachments.slice();
-  w.chat.push({ role: 'user', text, imgs });
+  w.chat.push({ role: 'user', text, imgs, at: Date.now() });
   // The first request names the chat, as AgentLoop does; each one moves it up the history.
   const open = currentChat(w);
   if (open) {
@@ -4038,7 +4069,7 @@ async function startTurn() {
   w.attachments = [];
   w.busy = true;
   S.focus = null;
-  const turn = { role: 'agent', parts: [] };
+  const turn = { role: 'agent', parts: [], model: S.model };
   // What the turn has done so far stays on screen above what it does now.
   w.live = { started: Date.now(), waiting: 'Ожидание модели', parts: turn.parts };
   render('none');
@@ -4145,6 +4176,8 @@ function keepOpen(w) {
 function finishTurn(turn) {
   const w = ws();
   keepOpen(w);
+  // About when its last reply began, which is the time the app shows.
+  turn.at = Date.now();
   w.chat.push(turn);
   w.live = null;
   w.busy = false;
@@ -4182,7 +4215,7 @@ function stopTurn() {
   w.context += 600;
   keepOpen(w);
   S.ask = null;
-  w.chat.push({ role: 'agent', parts });
+  w.chat.push({ role: 'agent', parts, at: Date.now(), model: S.model });
   // Whatever was still running gets the same ^C it would get from the keys
   // row, so the terminal reads the same either way.
   w.sessions.forEach((s) => {

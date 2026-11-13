@@ -433,6 +433,12 @@ mark.hit.cur { background: var(--c-warning); color: var(--c-on-primary); }
 .checkpoint button:active { background: var(--c-pressed); }
 .checkpoint button:disabled { color: var(--c-text-disabled); }
 .a { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.turn-a { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* MessageMeta: one line, the model gives way, the time never does. */
+.meta { display: flex; min-width: 0; color: var(--c-text-tertiary); white-space: nowrap; }
+.meta .when { flex: none; }
+.meta .model { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.turn-u .meta { justify-content: flex-end; padding: 0 2px; }
 .md { color: var(--c-text-body); overflow-wrap: anywhere; }
 .md > * + * { margin-top: 10px; }
 .md strong { font-weight: 600; color: var(--c-text); }

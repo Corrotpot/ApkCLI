@@ -661,6 +661,7 @@
     <string name="model_sheet_title">Модель</string>
     <string name="model_source_full">Список и лимиты пришли от сервера.</string>
     <string name="model_source_ids">Сервер отдаёт только id моделей, поэтому окно контекста — осторожное значение, пока ошибка переполнения не сообщит настоящее.</string>
+    <string name="message_meta_model">, %1$s</string>
     <string name="nav_agent">Агент</string>
     <string name="note_body">Факт, который агент должен держать в голове, и почему он верен.</string>
     <string name="note_edit">Изменить заметку</string>

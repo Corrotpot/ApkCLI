@@ -1219,6 +1219,16 @@ were last used.
 * **Renaming** replaces the title `AgentLoop` takes from the first request.
   The store stamps `updated_at` on every session update, so a renamed chat
   moves to the top of the list.
+* **Under each message, when it was written** (`MessageMeta`): under the
+  user's bubble the date and time, under a reply also the model that wrote it,
+  "13.11.2026, 19:50, deepseek-v4.1-flash", in caption type in the tertiary
+  colour. The format is the phone's, in the app's language, with its time
+  zone and its 12- or 24-hour clock. A reply's line goes under the last
+  message of its turn, and only once the turn is over, so it never shows
+  under one round and then moves down to the next. It stays on one line: a
+  long model name ends in an ellipsis, the time is never cut. The model is
+  stored with each message (`messages.model`, schema 2); messages from
+  earlier builds have the time alone.
 
 ### Find in the chat
 

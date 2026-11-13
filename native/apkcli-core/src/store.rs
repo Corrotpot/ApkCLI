@@ -21,7 +21,8 @@ use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SCHEMA_VERSION: i64 = 1;
+/// 2: `messages.model`, the model that wrote an assistant message.
+const SCHEMA_VERSION: i64 = 2;
 
 pub struct Store {
     conn: Mutex<Connection>,
@@ -113,6 +114,7 @@ CREATE TABLE IF NOT EXISTS messages(
   pinned     INTEGER NOT NULL DEFAULT 0,
   archived   INTEGER NOT NULL DEFAULT 0,
   digest_id  TEXT,
+  model      TEXT,
   UNIQUE(session_id, seq)
 );
 CREATE INDEX IF NOT EXISTS idx_msg_live ON messages(session_id, archived, seq);
@@ -205,6 +207,24 @@ CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
 END;
 "#,
         )?;
+        // Columns added after a table first shipped: CREATE TABLE IF NOT
+        // EXISTS leaves an existing table as it was, so they are added here.
+        // ADD COLUMN only writes the schema; the rows read the new one as NULL.
+        let has_model = |conn: &Connection| -> Result<bool> {
+            Ok(conn
+                .prepare("SELECT 1 FROM pragma_table_info('messages') WHERE name = 'model'")?
+                .exists([])?)
+        };
+        if !has_model(&conn)? {
+            // Three processes open the store, and the first launch after an
+            // update starts two of them at once: the second one's ALTER finds
+            // the column already added, which is not a failure.
+            if let Err(error) = conn.execute("ALTER TABLE messages ADD COLUMN model TEXT", []) {
+                if !has_model(&conn)? {
+                    return Err(error.into());
+                }
+            }
+        }
         conn.execute(
             "INSERT OR REPLACE INTO meta(k, v) VALUES ('schema_version', ?1)",
             params![SCHEMA_VERSION.to_string()],
@@ -478,6 +498,7 @@ END;
         let tokens = i(v, "tokens", 0);
         let status = s_or(v, "status", "complete");
         let pinned = b(v, "pinned", false) as i64;
+        let model = opt_s(v, "model");
         let now = now_ms();
 
         let mut conn = self.conn.lock();
@@ -489,9 +510,9 @@ END;
         )?;
         tx.execute(
             "INSERT INTO messages(id, session_id, seq, role, status, created_at,
-                                  content, text, tokens, pinned)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-            params![id, session_id, seq, role, status, now, content, text, tokens, pinned],
+                                  content, text, tokens, pinned, model)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+            params![id, session_id, seq, role, status, now, content, text, tokens, pinned, model],
         )?;
         tx.execute(
             "UPDATE sessions
@@ -562,7 +583,7 @@ END;
         let include_archived = b(v, "includeArchived", false);
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, seq, role, status, created_at, content, text, tokens, pinned, archived
+            "SELECT id, seq, role, status, created_at, content, text, tokens, pinned, archived, model
              FROM messages
              WHERE session_id = ?1 AND (?2 = 1 OR archived = 0)
              ORDER BY seq DESC
@@ -586,7 +607,7 @@ END;
         let to = i(v, "toSeq", i64::MAX);
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, seq, role, status, created_at, content, text, tokens, pinned, archived
+            "SELECT id, seq, role, status, created_at, content, text, tokens, pinned, archived, model
              FROM messages
              WHERE session_id = ?1 AND seq >= ?2 AND seq <= ?3
              ORDER BY seq ASC",
@@ -613,6 +634,7 @@ END;
             "tokens": r.get::<_, i64>(7)?,
             "pinned": r.get::<_, i64>(8)? != 0,
             "archived": r.get::<_, i64>(9)? != 0,
+            "model": r.get::<_, Option<String>>(10)?,
         }))
     }
 
@@ -1317,6 +1339,49 @@ mod tests {
         )
         .unwrap();
         assert_eq!(hits["hits"].as_array().unwrap().len(), 1);
+    }
+
+    /// The model that wrote a message comes back with it, and a store made
+    /// before the column existed gains it on opening, its rows reading as none.
+    #[test]
+    fn a_message_keeps_its_model_and_an_older_store_gains_the_column() {
+        let path = std::env::temp_dir().join(format!("apkcli-model-{}.db", std::process::id()));
+        let remove = |p: &std::path::Path| {
+            for suffix in ["", "-wal", "-shm"] {
+                let _ = std::fs::remove_file(format!("{}{suffix}", p.display()));
+            }
+        };
+        remove(&path);
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE sessions(id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '',
+                   workspace TEXT NOT NULL DEFAULT '', agent_id TEXT, endpoint_id TEXT, model TEXT,
+                   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                   archived INTEGER NOT NULL DEFAULT 0, next_seq INTEGER NOT NULL DEFAULT 0,
+                   live_tokens INTEGER NOT NULL DEFAULT 0, total_tokens INTEGER NOT NULL DEFAULT 0,
+                   compactions INTEGER NOT NULL DEFAULT 0);
+                 CREATE TABLE messages(id TEXT PRIMARY KEY, session_id TEXT NOT NULL, seq INTEGER NOT NULL,
+                   role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'complete', created_at INTEGER NOT NULL,
+                   content TEXT NOT NULL DEFAULT '[]', text TEXT NOT NULL DEFAULT '',
+                   tokens INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
+                   archived INTEGER NOT NULL DEFAULT 0, digest_id TEXT, UNIQUE(session_id, seq));
+                 INSERT INTO sessions(id, created_at, updated_at, next_seq) VALUES ('s1', 1, 1, 1);
+                 INSERT INTO messages(id, session_id, seq, role, created_at) VALUES ('old', 's1', 0, 'assistant', 1);",
+            )
+            .unwrap();
+        }
+
+        let st = Store::open(path.to_str().unwrap()).unwrap();
+        call(&st, "message.append", json!({"sessionId":"s1","id":"new","role":"assistant","model":"deepseek/v4.1-flash"}));
+        let window = call(&st, "message.window", json!({"sessionId":"s1"}));
+        let messages = window["messages"].as_array().unwrap();
+        assert_eq!(messages[0]["id"], "old");
+        assert_eq!(messages[0]["model"], Value::Null);
+        assert_eq!(messages[1]["model"], "deepseek/v4.1-flash");
+
+        drop(st);
+        remove(&path);
     }
 
     #[test]

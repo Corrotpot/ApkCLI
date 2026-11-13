@@ -659,6 +659,7 @@
     <string name="model_sheet_title">Model</string>
     <string name="model_source_full">The list and the limits came from the server.</string>
     <string name="model_source_ids">The server lists model ids only, so the context window is a cautious default until an overflow error tells the real one.</string>
+    <string name="message_meta_model">, %1$s</string>
     <string name="nav_agent">Agent</string>
     <string name="note_body">A fact the agent should keep in mind, and why it holds.</string>
     <string name="note_edit">Edit the note</string>

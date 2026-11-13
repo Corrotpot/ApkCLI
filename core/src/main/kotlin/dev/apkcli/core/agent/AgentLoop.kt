@@ -645,7 +645,10 @@ class AgentLoop(
     ): TurnOutcome {
         val messageId = ConversationStore.newId("m")
 
-        store.append(
+        // When the store put it, for the time the chat shows under it: the
+        // finished message below carries it too, or the live chat had none
+        // until it was reopened.
+        val createdAt = store.append(
             Message(
                 id = messageId,
                 sessionId = config.sessionId,
@@ -653,8 +656,8 @@ class AgentLoop(
                 status = MessageStatus.STREAMING,
                 model = config.model.id,
             ),
-        )
-        collector.emit(AgentEvent.AssistantStarted(messageId, iteration))
+        ).createdAt
+        collector.emit(AgentEvent.AssistantStarted(messageId, iteration, config.model.id))
 
         val text = StringBuilder()
         val thinking = StringBuilder()
@@ -829,6 +832,7 @@ class AgentLoop(
                     sessionId = config.sessionId,
                     role = Role.ASSISTANT,
                     status = if (failure != null) MessageStatus.ERROR else MessageStatus.COMPLETE,
+                    createdAt = createdAt,
                     content = blocks,
                     model = config.model.id,
                     errorMessage = failure?.message,

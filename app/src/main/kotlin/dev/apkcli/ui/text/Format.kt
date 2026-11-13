@@ -1,12 +1,18 @@
 package dev.apkcli.ui.text
 
+import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import dev.apkcli.R
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
 
 /*
  * Numbers as the design writes them, in the user's own notation: "2 мин
@@ -56,5 +62,25 @@ fun tokensText(count: Int): String {
         count >= 10_000 -> "${Math.round(count / 1000.0)}k"
         count >= 1_000 -> format.apply { minimumFractionDigits = 1 }.format(count / 1000.0) + "k"
         else -> count.toString()
+    }
+}
+
+/**
+ * When a message was written, as the phone writes a date and a time:
+ * "13.11.2026, 19:50", "11/13/2026, 7:50 PM". In the app's language, the
+ * phone's time zone and its 12- or 24-hour clock, the year always: a chat is
+ * read again long after. One formatter for the whole list, made again only
+ * when one of those changes.
+ */
+@Composable
+fun rememberMessageClock(): (Long) -> String {
+    val locale = LocalConfiguration.current.locales[0]
+    val hours24 = DateFormat.is24HourFormat(LocalContext.current)
+    val zone = TimeZone.getDefault().id
+    return remember(locale, hours24, zone) {
+        val pattern = DateFormat.getBestDateTimePattern(locale, if (hours24) "yyyyMMddHHmm" else "yyyyMMddhmm")
+        val format = SimpleDateFormat(pattern, locale).apply { timeZone = TimeZone.getTimeZone(zone) }
+        val clock: (Long) -> String = { millis -> format.format(Date(millis)) }
+        clock
     }
 }
