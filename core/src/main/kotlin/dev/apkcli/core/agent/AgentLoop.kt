@@ -587,7 +587,7 @@ class AgentLoop(
             if (remembered.isNotEmpty()) {
                 if (isNotEmpty()) appendLine()
                 appendLine("Remembered about this project (memory_write):")
-                appendFacts(remembered)
+                append(MemoryScopes.promptLines(facts = remembered, global = false))
             }
             // Facts about the user and their setup hold in every project:
             // the language they want, how they like changes made. They used
@@ -595,24 +595,8 @@ class AgentLoop(
             if (global.isNotEmpty()) {
                 if (isNotEmpty()) appendLine()
                 appendLine("Remembered for all projects (memory_write with global: true):")
-                appendFacts(global)
+                append(MemoryScopes.promptLines(facts = global, global = true))
             }
-        }
-    }
-
-    /** One line per fact, up to [MAX_MEMORY_CHARS]; past that a count and where the rest are. */
-    private fun StringBuilder.appendFacts(facts: Map<String, String>) {
-        var used = 0
-        var shown = 0
-        for ((key, value) in facts) {
-            val line = "- $key: $value"
-            if (used + line.length > MAX_MEMORY_CHARS) break
-            appendLine(line)
-            used += line.length + 1
-            shown++
-        }
-        if (shown < facts.size) {
-            appendLine("- (${facts.size - shown} more not shown; memory_read lists every one)")
         }
     }
 
@@ -1272,8 +1256,5 @@ class AgentLoop(
         /** Ceiling on a diff stored for the transcript; see [diffSummary]. */
         private const val MAX_DIFF_LINES = 400
         private const val MAX_DIFF_CHARS = 48 * 1024
-
-        /** Remembered facts put in the prompt, per scope; see [MemoryScopes.MAX_SCOPE_CHARS]. */
-        private const val MAX_MEMORY_CHARS = MemoryScopes.MAX_SCOPE_CHARS
     }
 }

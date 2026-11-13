@@ -1228,10 +1228,13 @@ project's instruction file (`AGENTS.md` and the other names in
 `ProjectInstructions.FILES`) — the global scope used to be kept but never
 shown.
 
-A fact may be 2 000 characters, a short paragraph, so it can carry the reason
+A fact may be 2 000 characters, 300 to 350 words, so it can carry the reason
 it holds rather than a bare rule that reads as arbitrary months later; 500,
-about three lines, was too few for that. A scope puts 12 000 characters in the
-prompt and then says how many facts are left. Both numbers are in
+some 80 words, were too few for that. A scope puts 12 000 characters in the
+prompt, five facts at the cap or many more short ones, and then says how many
+facts are left. A fact too long for the room left is passed over rather than
+ending the list, and the later lines of a fact are indented under its key, so a
+list inside it does not read as facts of their own. Both numbers are in
 `MemoryScopes`, which the tool, the prompt and the sheet read: the note cap
 used to be declared twice, in core and in the UI, and the two had to be kept
 equal by hand. Memory in the workspace's ⋮ menu opens

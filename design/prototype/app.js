@@ -2620,7 +2620,8 @@ function chatDeleteSheet() {
   );
 }
 
-const NOTE_LIMIT = 280;
+/* MemoryScopes.MAX_NOTE_CHARS in the app. */
+const NOTE_LIMIT = 2000;
 
 /*
  * One note.
@@ -2643,7 +2644,7 @@ function noteSheet() {
     // Scope is said once, under the switch, and not repeated here where it
     // would go stale the moment the switch moves.
     sheetHead('book', f.editing ? 'Изменить заметку' : 'Новая заметка',
-      'Короткий факт, который агент должен держать в голове.')
+      'Факт, который агент должен держать в голове, и почему он верен.')
     + '<div class="sheet-body">'
     + '<div class="field" style="margin-top:16px"><span class="field-label t-label-small">Где помнить</span>'
     + `<div class="seg">${SCOPES.map((s) =>
@@ -2659,7 +2660,7 @@ function noteSheet() {
         : 'Агент видит его как тему заметки и по нему же её обновляет.')}</div></div>`
     + '<div class="field"><span class="field-label t-label-small">Заметка</span>'
     + `<div class="area${f.error === 'value' ? ' error' : ''} t-body">`
-    + `<textarea id="noteValue" rows="3" placeholder="Одно-два предложения" data-i="note-value">${esc(f.value)}</textarea></div>`
+    + `<textarea id="noteValue" rows="3" placeholder="Предложение или абзац с причиной" data-i="note-value">${esc(f.value)}</textarea></div>`
     + `<div class="helper t-caption${over || f.error === 'value' ? ' error' : ''}">`
     + `${f.error === 'value' ? esc(f.message || '') : `${f.value.trim().length} / ${NOTE_LIMIT}`}</div></div>`
     + '</div>'
