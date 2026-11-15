@@ -53,6 +53,7 @@ class CompactionAskTest {
         reasoningEffort = "high",
         maxOutputTokens = model.maxOutputTokens,
         temperature = 0.3,
+        sessionId = "s1",
     )
 
     @Test
@@ -61,6 +62,8 @@ class CompactionAskTest {
 
         val asked = checkNotNull(CompactionAsk.within(base, promptTokens = 150_000))
 
+        // To the provider that served the agent's requests, whose cache holds them.
+        assertEquals(base.sessionId, asked.sessionId)
         assertEquals(base.system, asked.system)
         assertEquals(base.systemStableLength, asked.systemStableLength)
         assertEquals(base.tools, asked.tools)

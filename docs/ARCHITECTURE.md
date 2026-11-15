@@ -430,6 +430,20 @@ cache did not hold, so the prompt a response reports is that plus the cache's
 reads and writes; counted alone, it would have calibrated the token estimator
 to read the window as nearly empty.
 
+Which provider serves an OpenRouter request is OpenRouter's choice. By default
+it weighs each provider's effective price over the last half hour, its real
+cache hit rate included, against its speed and reliability, picks at random
+among those close to the best, and keeps a chat on the provider whose cache
+holds it for an hour after its last request. Told nothing, it tells chats
+apart by their first system and first user message, and only after a cache
+hit: a new chat's first requests could each go to another provider and write
+the whole prompt to its cache, and after a compaction, which takes the first
+message out of the window, the chat was a new one to it. Requests carry the
+chat's id as `session_id` instead (`CompletionRequest.sessionId`), the summary
+asked within a request as well; a subagent has its own. The app sets no
+`provider.sort`: sorting by list price skips the effective price, and with it
+what each provider's cache saves.
+
 ## Connection schemes
 
 A connection used to be a form: URL, wire format, auth header, extra headers.

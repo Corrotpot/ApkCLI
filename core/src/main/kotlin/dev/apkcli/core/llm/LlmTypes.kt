@@ -46,6 +46,12 @@ data class CompletionRequest(
     val toolChoice: ToolChoice = ToolChoice.Auto,
     /** Opaque per-request id used in logs and in the UI's error reporting. */
     val requestId: String = "",
+    /**
+     * The chat the request carries the prompt of, for a gateway that keeps a
+     * chat on the provider holding its prompt cache (OpenRouter's
+     * `session_id`). Null for a request of its own, such as an endpoint test.
+     */
+    val sessionId: String? = null,
 ) {
     sealed interface ToolChoice {
         data object Auto : ToolChoice

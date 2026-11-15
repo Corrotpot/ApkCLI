@@ -95,4 +95,14 @@ class PromptCachingTest {
         assertTrue(blocks[1].getValue("text").jsonPrimitive.content.contains(volatile))
         assertEquals(3, body.toString().split("cache_control").size - 1)
     }
+
+    @Test
+    fun `OpenRouter is told which chat a request is, so the chat stays where its cache is`() {
+        val adapter = OpenAiChatAdapter()
+        val chat = request(ConnectionScheme.OPENROUTER, "deepseek/deepseek-v4.1-flash").copy(sessionId = "s-42")
+        assertEquals("s-42", adapter.buildBody(chat, stream = true).getValue("session_id").jsonPrimitive.content)
+        // A request of no chat says none, and no other endpoint gets the field.
+        assertNull(adapter.buildBody(chat.copy(sessionId = null), stream = true)["session_id"])
+        assertNull(adapter.buildBody(request(ConnectionScheme.OPENAI, "gpt-6").copy(sessionId = "s-42"), stream = true)["session_id"])
+    }
 }

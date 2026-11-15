@@ -290,6 +290,18 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
             put("model", request.model.id)
             put("messages", encodeMessages(request))
             put("stream", stream)
+
+            // OpenRouter keeps a chat on the provider whose cache holds it,
+            // for an hour after its last request. Without an id it tells chats
+            // apart by their first system and first user message, and only
+            // after a cache hit: a new chat's first requests could each go to
+            // another provider and write the whole prompt to its cache, and a
+            // compaction, which takes the first message out of the window,
+            // made the chat a new one. With the chat's id it stays from its
+            // first request on.
+            if (ConnectionScheme.of(request.endpoint) == ConnectionScheme.OPENROUTER) {
+                request.sessionId?.takeIf { it.isNotBlank() }?.let { put("session_id", it.take(MAX_SESSION_ID)) }
+            }
             if (stream) {
                 // Opt in to the final usage frame. Harmlessly ignored by
                 // servers that do not implement it.
@@ -656,5 +668,8 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
 
         /** A prompt cache breakpoint, Anthropic's five-minute kind. */
         private val EPHEMERAL = buildJsonObject { put("type", "ephemeral") }
+
+        /** The longest `session_id` OpenRouter takes. */
+        private const val MAX_SESSION_ID = 256
     }
 }

@@ -677,6 +677,9 @@ class AgentLoop(
         reasoningEffort = config.reasoningEffort,
         maxOutputTokens = config.model.maxOutputTokens,
         stream = true,
+        // The summary asked within this request is a copy of it, so it goes
+        // to the same provider, whose cache holds the conversation.
+        sessionId = config.sessionId,
     )
 
     private suspend fun streamAssistantTurn(
