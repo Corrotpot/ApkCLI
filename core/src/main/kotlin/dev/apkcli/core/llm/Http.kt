@@ -399,7 +399,7 @@ object Http {
  *
  * `execute()` blocks in socket reads, and coroutine cancellation cannot
  * interrupt a thread parked there: a stopped `web_search` went on waiting for
- * DuckDuckGo regardless. A watcher in the same scope cancels the [Call] when
+ * its server regardless. A watcher in the same scope cancels the [Call] when
  * the scope is cancelled, which closes the socket and makes the blocked read
  * throw. [block] reads the response on an IO thread and must consume it fully;
  * the response is closed afterwards.

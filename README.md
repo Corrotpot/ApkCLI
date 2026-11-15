@@ -21,7 +21,7 @@ parts that work inside an Android app sandbox.
 | **A million-token window is budgeted** | Compaction produces a structured digest — including what was already tried and failed — and the verbatim history stays indexed so the agent can search it. |
 | **A connection is a key** | Anthropic, OpenAI, OpenRouter and Kiro are known schemes: paste the key and nothing else is asked. Any other OpenAI-compatible or Anthropic Messages server, hosted or on your LAN over plain HTTP (a key is never sent unencrypted to a public host), is a custom connection with its URL. No model id to type: the list and its metadata are read from the endpoint, never hardcoded. |
 | **Every message is a checkpoint** | Restore above any message of yours takes the chat, the agent's context and the files it changed back to before it, and puts the message back in the composer. |
-| **Search needs no key** | `web_search` reads DuckDuckGo's server-rendered lite page over HTTPS and parses it on the device — no WebView, no account. A Brave/Tavily/SearXNG endpoint is optional. |
+| **Search needs no key** | `web_search` asks the free search Exa and Parallel run for agents, one standing in when the other fails, and each result comes with an excerpt picked for what the agent wants to know. No account, no bot check. `web_fetch` asks for Markdown first, and a public page that refuses the device is read through the same services. A Brave/Tavily/SearXNG endpoint is optional. |
 
 ---
 

@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * **Static** — an HTTP GET plus [HtmlExtractor]. Covers documentation, source
  * forges, blogs, RFCs, package registries. Costs one request and no rendering.
+ * It asks for Markdown first, which sites behind Cloudflare's Markdown for
+ * Agents and many documentation hosts serve, and says it is a tool: after a
+ * bot check it asks once more as nothing but one (see [fetch]).
  *
  * **Rendered** — the page is loaded in a `WebView` and the post-JavaScript DOM
  * is read out. This is the Android equivalent of driving headless Chrome, and
@@ -70,16 +73,25 @@ class WebFetcher(private val context: Context) {
         val truncated: Boolean,
         /** Set when the static fetch looked like an unhydrated shell. */
         val suggestsRendering: Boolean,
-        /**
-         * The undecorated response body, only when the caller asked for it.
-         * Search parses result markup that text extraction would flatten.
-         */
-        val rawBody: String = "",
     )
 
     sealed interface Outcome {
         data class Success(val page: Page) : Outcome
-        data class Failure(val message: String, val status: Int? = null) : Outcome
+
+        data class Failure(
+            val message: String,
+            val status: Int? = null,
+            /** The address asked, normalised; null when it was not one. */
+            val url: String? = null,
+            /**
+             * The site would not answer this device — refused it, rate-limited
+             * it, blocked it for its region, or could not be reached — rather
+             * than answering with a page that is not there.
+             */
+            val blocked: Boolean = false,
+            /** The refusal was a bot check (Cloudflare's), which a browser engine may pass. */
+            val botCheck: Boolean = false,
+        ) : Outcome
     }
 
     /**
@@ -93,19 +105,19 @@ class WebFetcher(private val context: Context) {
         maxBytes: Int = DEFAULT_MAX_BYTES,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
         headers: Map<String, String> = emptyMap(),
-        /** Also return the raw body in [Page.rawBody]. Static path only. */
-        keepRaw: Boolean = false,
     ): Outcome {
         val normalised = normaliseUrl(url)
             ?: return Outcome.Failure(
                 "Not a fetchable URL: '$url'. Only http and https are supported.",
             )
 
-        return if (renderJs) {
-            fetchRendered(normalised, timeoutMs, maxBytes)
-        } else {
-            fetchStatic(normalised, maxBytes, timeoutMs, headers, keepRaw)
-        }
+        if (renderJs) return fetchRendered(normalised, timeoutMs, maxBytes)
+        // A bot check is shown to clients that claim to be a browser; one
+        // that says plainly it is a tool is let through or refused, which
+        // is what OpenCode found as well. Asked again once as that.
+        val first = fetchStatic(normalised, maxBytes, timeoutMs, headers, USER_AGENT)
+        if (first !is Outcome.Failure || !first.botCheck) return first
+        return fetchStatic(normalised, maxBytes, timeoutMs, headers, PLAIN_USER_AGENT)
     }
 
     /* ------------------------------------------------------------- static */
@@ -115,7 +127,7 @@ class WebFetcher(private val context: Context) {
         maxBytes: Int,
         timeoutMs: Long,
         headers: Map<String, String> = emptyMap(),
-        keepRaw: Boolean = false,
+        userAgent: String = USER_AGENT,
     ): Outcome {
         val client = Http.client.newBuilder()
             .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
@@ -129,8 +141,11 @@ class WebFetcher(private val context: Context) {
 
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", USER_AGENT)
-            .header("Accept", "text/html,application/xhtml+xml,text/plain,application/json;q=0.9,*/*;q=0.5")
+            .header("User-Agent", userAgent)
+            // Markdown first: a site behind Cloudflare's Markdown for Agents,
+            // and many documentation hosts, answer with the page as Markdown,
+            // already without its navigation.
+            .header("Accept", ACCEPT)
             .header("Accept-Language", "en,*;q=0.5")
             .apply { headers.forEach { (name, value) -> header(name, value) } }
             .get()
@@ -139,6 +154,16 @@ class WebFetcher(private val context: Context) {
         return try {
             client.newCall(request).executeCancellable { response ->
                 val contentType = response.header("Content-Type") ?: ""
+                // Before the type check: a bot check is an HTML page.
+                if (isBotCheck(response.code, response.header("cf-mitigated"))) {
+                    return@executeCancellable Outcome.Failure(
+                        "HTTP ${response.code}: the site answered with a bot check (Cloudflare).",
+                        response.code,
+                        url = url,
+                        blocked = true,
+                        botCheck = true,
+                    )
+                }
                 if (!isTextual(contentType)) {
                     return@executeCancellable Outcome.Failure(
                         "The response is $contentType, which is not text. This tool reads " +
@@ -172,6 +197,8 @@ class WebFetcher(private val context: Context) {
                     return@executeCancellable Outcome.Failure(
                         "HTTP ${response.code} ${response.message}. Body: ${raw.take(500)}",
                         response.code,
+                        url = url,
+                        blocked = response.code in REFUSALS,
                     )
                 }
 
@@ -190,7 +217,6 @@ class WebFetcher(private val context: Context) {
                         bytes = raw.length,
                         truncated = truncated,
                         suggestsRendering = extracted.looksLikeEmptyShell,
-                        rawBody = if (keepRaw) raw else "",
                     )
                 } else {
                     // Plain text, Markdown and JSON are already readable.
@@ -198,7 +224,7 @@ class WebFetcher(private val context: Context) {
                         requestedUrl = url,
                         finalUrl = finalUrl,
                         status = response.code,
-                        title = "",
+                        title = if (contentType.contains("markdown", ignoreCase = true)) markdownTitle(raw) else "",
                         text = raw,
                         links = emptyList(),
                         renderedWithJs = false,
@@ -206,7 +232,6 @@ class WebFetcher(private val context: Context) {
                         bytes = raw.length,
                         truncated = truncated,
                         suggestsRendering = false,
-                        rawBody = if (keepRaw) raw else "",
                     )
                 }
                 Outcome.Success(page)
@@ -214,7 +239,9 @@ class WebFetcher(private val context: Context) {
         } catch (t: Throwable) {
             // Stopped from outside: unwind, do not report it as a failed fetch.
             currentCoroutineContext().ensureActive()
-            Outcome.Failure(Http.classify(t).message)
+            // No answer at all: the host is down, mistyped, or blocked on the
+            // way here, which another service's network may not be.
+            Outcome.Failure(Http.classify(t).message, url = url, blocked = true)
         }
     }
 
@@ -293,7 +320,7 @@ class WebFetcher(private val context: Context) {
                         // a metered phone connection they are most of the bytes.
                         loadsImagesAutomatically = false
                         blockNetworkImage = true
-                        userAgentString = USER_AGENT
+                        userAgentString = BROWSER_USER_AGENT
                         cacheMode = WebSettings.LOAD_NO_CACHE
                         // No reason for a fetched page to reach the filesystem.
                         allowFileAccess = false
@@ -438,15 +465,63 @@ class WebFetcher(private val context: Context) {
         private const val TAG = "WebFetcher"
 
         /**
-         * A desktop Chrome UA, not the device's own.
-         *
-         * Sites that detect Android serve a stripped mobile page or an
-         * interstitial pushing their app, both of which have less of the
-         * content we are after.
+         * Who the static tier says it is: browser-like, so sites serve their
+         * full desktop page rather than a stripped mobile one or a push to
+         * their app, and honest about being a tool. A plain Chrome string
+         * from a client whose TLS is not Chrome's is what Cloudflare's bot
+         * checks are for. OpenCode's, with this app's name.
          */
         private const val USER_AGENT =
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ApkCLI/0.1; " +
+                "+https://github.com/Corrotpot/ApkCLI"
+
+        /** Asked as after a bot check: a tool and nothing else, which such checks let through or refuse. */
+        private const val PLAIN_USER_AGENT = "ApkCLI"
+
+        /**
+         * The rendered tier's: a desktop Chrome, which the WebView is, so
+         * sites that detect Android do not hand it their mobile page.
+         */
+        private const val BROWSER_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " +
                 "Chrome/131.0.0.0 Safari/537.36"
+
+        /** Markdown first, then HTML, as OpenCode asks. */
+        private const val ACCEPT =
+            "text/markdown;q=1.0, text/x-markdown;q=0.9, text/html;q=0.8, application/xhtml+xml;q=0.8, " +
+                "text/plain;q=0.7, application/json;q=0.6, */*;q=0.1"
+
+        /** Answers that refuse the device rather than say the page is not there: forbidden, too many, blocked for its region. */
+        private val REFUSALS = setOf(403, 429, 451)
+
+        /** Cloudflare's bot check: a 403 or 503 marked `cf-mitigated: challenge`. */
+        internal fun isBotCheck(status: Int, cfMitigated: String?): Boolean =
+            (status == 403 || status == 503) && cfMitigated?.trim().equals("challenge", ignoreCase = true)
+
+        /**
+         * A Markdown page's title: `title:` in its front matter, which
+         * Cloudflare's conversion writes, or else its first `#` heading.
+         */
+        internal fun markdownTitle(text: String): String {
+            val lines = text.trimStart().lines()
+            if (lines.firstOrNull()?.trim() == "---") {
+                val end = lines.drop(1).indexOfFirst { it.trim() == "---" }
+                if (end >= 0) {
+                    lines.subList(1, end + 1)
+                        .firstOrNull { it.startsWith("title:") }
+                        ?.substringAfter(':')?.trim()?.trim('"', '\'')
+                        ?.takeIf { it.isNotEmpty() }
+                        ?.let { return it.take(300) }
+                }
+            }
+            return lines.take(MARKDOWN_TITLE_LINES)
+                .firstOrNull { it.startsWith("# ") }
+                ?.removePrefix("# ")?.trim()?.take(300)
+                .orEmpty()
+        }
+
+        /** How far into a Markdown page its title heading is looked for. */
+        private const val MARKDOWN_TITLE_LINES = 40
 
         const val DEFAULT_MAX_BYTES = 2 * 1024 * 1024
         private const val MAX_HARD_BYTES = 8L * 1024 * 1024

@@ -50,9 +50,9 @@ import dev.apkcli.core.agent.tools.WebSearchTool
  *
  * Two tools are conditional rather than always declared:
  *
- *  * `web_search` is keyless by default (DuckDuckGo), but the user can switch
- *    it off, or pick a custom API and leave the URL blank. Either way it is not
- *    declared: a tool that always fails costs tokens on every request.
+ *  * `web_search` is keyless by default (Exa and Parallel), but the user can
+ *    switch it off, or pick a custom API and leave the URL blank. Either way it
+ *    is not declared: a tool that always fails costs tokens on every request.
  *  * `pkg_install`, `pkg_search` and `pkg_remove` exist only where an installed
  *    binary can run: the power build, on a CPU Termux builds for. On the Play
  *    build the environment section of the system prompt says why nothing can
@@ -61,8 +61,12 @@ import dev.apkcli.core.agent.tools.WebSearchTool
 object Tools {
 
     data class Options(
-        /** Where `web_search` gets results, or null to omit the tool. */
-        val search: SearchBackend? = SearchBackend.DuckDuckGo(),
+        /**
+         * Where `web_search` gets results, or null to omit the tool. Keyless,
+         * it also lets `web_fetch` read through those services a page that
+         * will not answer the device.
+         */
+        val search: SearchBackend? = SearchBackend.Keyless(),
         /** Register the `pkg_*` tools. */
         val packageManagementAvailable: Boolean = true,
     )
@@ -116,7 +120,7 @@ object Tools {
             add(MemoryForgetTool())
 
             // --- the web ----------------------------------------------------
-            add(WebFetchTool())
+            add(WebFetchTool(reader = (options.search as? SearchBackend.Keyless)?.service))
             add(HttpRequestTool())
             options.search?.let { add(WebSearchTool(it)) }
 

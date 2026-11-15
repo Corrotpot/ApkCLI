@@ -52,6 +52,7 @@ object NetworkHosts {
     }
 
     private fun isPrivateV4(o: IntArray): Boolean = when {
+        o[0] == 0 -> true                               // 0.0.0.0/8: what a server on every address prints; it is this device
         o[0] == 10 -> true                              // 10.0.0.0/8
         o[0] == 127 -> true                             // loopback
         o[0] == 172 && o[1] in 16..31 -> true           // 172.16.0.0/12
@@ -62,7 +63,8 @@ object NetworkHosts {
     }
 
     private fun isPrivateV6(h: String): Boolean {
-        if (h == "::1") return true
+        // Loopback, and the unspecified address a dev server prints when it listens on every one.
+        if (h == "::1" || h == "::") return true
         // IPv4-mapped (::ffff:192.168.1.5) defers to the IPv4 rules.
         h.substringAfterLast(':').let { tail ->
             if ('.' in tail) ipv4(tail)?.let { return isPrivateV4(it) }

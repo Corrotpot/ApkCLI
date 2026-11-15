@@ -723,6 +723,57 @@ sniff. Assuming UTF-8 would mojibake the large part of the Russian-language web
 still served as windows-1251, and plausible-looking garbage is worse than an
 obvious failure.
 
+The static tier asks for Markdown before HTML. Sites behind Cloudflare's
+Markdown for Agents, and many documentation hosts, then send the page already
+converted and without its navigation; its title is taken from the front matter
+or the first `#` heading. The User-Agent names a browser engine and the app,
+as OpenCode's does: a full Chrome string from a client whose TLS is not
+Chrome's is what Cloudflare's bot checks look for. After a bot check (a 403 or
+503 with `cf-mitigated: challenge`) the page is asked for once more as plain
+`ApkCLI`, which such checks let through or refuse outright.
+
+When the site still will not answer the device (a bot check, a 403, 429 or
+451, or no answer at all) and search is keyless, the page is read through
+Parallel, then Exa, the services `web_search` uses, and the result says which
+one read it. Parallel goes first here because it sends the whole page as
+Markdown and follows redirects; Exa returned a redirect notice for a page that
+had moved. Only a public address is handed over: no loopback, LAN or private
+host, no user name in it, and no query parameter whose name looks like a
+credential (`WebFetchTool.mayLeaveDevice`). With a custom search API, or with
+search off, nothing leaves the device this way.
+
+## Web search
+
+With no key, `web_search` asks the free MCP servers that Exa (`mcp.exa.ai`)
+and Parallel (`mcp.parallel.ai`) run for agents, the ones OpenCode searches
+with. A search is one JSON-RPC `tools/call` POST, answered as JSON or as a
+server-sent event (`RemoteMcp`). Neither server needs an `initialize` first,
+so there is no session to keep and no MCP library to bundle. DuckDuckGo's lite
+page, used before, answered bursts of searches with a bot check, and getting
+past that check in a WebView is against its terms.
+
+Exa is asked first and Parallel when it fails (`KeylessSearch`). A service
+that failed is left alone for every chat in the process, since the free limits
+are per address: 20 s after a timeout or a 5xx, 60 s after a rate limit (or
+what its `Retry-After` says, at most 15 min), 10 min after a 401 or 403. A
+failure caused by the request itself leaves no rest. When both fail, the
+result gives each one's reason and when one may be asked again.
+
+The model passes `query`, the keywords, and optionally `objective`, what it
+wants to find out. Both services rank pages and pick excerpts by the
+objective; without one the query stands in. `site` and `recency` are added to
+the objective as sentences, and `site` also goes into the query as `site:`;
+the results are then filtered to that host and its subdomains on the device.
+The excerpts share 10 000 characters, 500 to 2 000 each. Ten results are
+fetched whatever the limit (twenty above ten) and kept for 10 minutes, so a
+search repeated after a compaction or in a subagent costs no request.
+Parallel's `session_id` is passed back for each chat.
+
+What leaves the device: the query and the objective, and in keyless mode the
+address of a page the device could not fetch, go to Exa and Parallel, two US
+companies. A custom JSON search API (`SearchMode.CUSTOM`: Brave, Tavily,
+SearXNG) replaces both, though the settings screen does not offer it yet.
+
 ## UI
 
 * **Not a reversed list.** The usual chat autoscroll trick breaks here: an
@@ -1611,6 +1662,12 @@ whole; the agent loop; the terminals; the UI; subagents):
   under them yet: the live turns ran under the old Runner. The approval flow
   before the modes ran against a scripted local server that answers like an
   OpenAI-format endpoint.
+* **Exa and Parallel have answered the JVM only.** Their parsing, the
+  failover and the rests are unit-tested (`RemoteMcpTest`,
+  `SearchServicesTest`, `KeylessSearchTest`, `WebToolsTest`), and a run on
+  the JVM searched both services and read a page Stack Overflow refused
+  through Parallel. No turn in the app has used them yet. Their free limits
+  are not published, so how often a busy chat meets a rest is not known.
 * **Checked at one width.** The history sheet, find in the chat and the top
   bar have run on a 411 dp emulator screen; 360 dp, where the top bar moves
   its icons into the menu, has not been looked at in the app.

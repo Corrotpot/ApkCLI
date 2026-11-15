@@ -188,14 +188,14 @@ class AgentRuntime(
      */
     fun registry(settings: AppSettings): ToolRegistry {
         val search = settings.search
-        val key = "${search.mode}|${search.url}|${search.authHeaderName}|${search.region}|" +
+        val key = "${search.mode}|${search.url}|${search.authHeaderName}|" +
             "${packages != null}|${settings.remoteNode?.enabled}"
 
         registryCache?.let { if (key == registryKey) return it }
 
         val backend = when {
             !search.configured -> null
-            search.mode == SearchMode.KEYLESS -> SearchBackend.DuckDuckGo(region = search.region)
+            search.mode == SearchMode.KEYLESS -> SearchBackend.Keyless()
             else -> SearchBackend.JsonApi(
                 url = search.url,
                 apiKey = secrets.apiKey(SearchSettings.CREDENTIAL_ID),

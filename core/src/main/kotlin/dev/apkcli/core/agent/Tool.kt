@@ -301,7 +301,7 @@ sealed interface ToolDisplay {
     /** `web_search` results, drawn as a list of links rather than a text dump. */
     data class SearchResults(
         val query: String,
-        /** Where they came from, e.g. "DuckDuckGo" or the custom endpoint's host. */
+        /** Where they came from, e.g. "Exa" or the custom endpoint's host. */
         val engine: String,
         val results: List<Result>,
     ) : ToolDisplay {

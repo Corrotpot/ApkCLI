@@ -628,8 +628,11 @@ data class EditorSettings(
 @Serializable
 enum class SearchMode {
     /**
-     * DuckDuckGo's no-JavaScript results page, read over plain HTTPS. No
-     * account and no key, so search works on a fresh install. The default.
+     * The free search Exa and Parallel run for agents, one standing in when
+     * the other fails (`KeylessSearch`). No account and no key, so search
+     * works on a fresh install. The default. Until November 2026 this was
+     * DuckDuckGo's results page, which answered bursts of searches with its
+     * bot check; the stored name stays.
      */
     @SerialName("keyless") KEYLESS,
 
@@ -662,11 +665,7 @@ data class SearchSettings(
      * token), SearXNG wants nothing.
      */
     val authHeaderName: String = "X-Subscription-Token",
-    /**
-     * Keyless mode: DuckDuckGo region, e.g. `ru-ru` or `us-en`. `wt-wt` means
-     * no regional bias.
-     */
-    val region: String = "wt-wt",
+    // `region`, DuckDuckGo's, is gone; a stored one is skipped on reading.
 ) {
     /** Whether `web_search` is offered to the model. */
     val configured: Boolean
