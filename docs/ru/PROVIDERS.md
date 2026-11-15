@@ -214,7 +214,9 @@ Anthropic, OpenRouter и Kiro отдают в списке окно контек
 - Рассуждение возвращается как `reasoning` и `reasoning_details` (типы
   `reasoning.text`, `reasoning.summary`, `reasoning.encrypted`), и при вызовах
   инструментов эти записи нужно вернуть в сообщении ассистента в исходном
-  порядке. (reasoning-tokens, выше)
+  порядке. Модели, которая возвращает обычный текст рассуждения (DeepSeek),
+  достаточно строки `reasoning` в сообщении ассистента; `reasoning_content`
+  принимается как то же поле. (reasoning-tokens, выше)
 - Данные об использовании (usage) включаются всегда; `usage.include` и
   `stream_options.include_usage` устарели и ничего не делают, а поток
   заканчивается фрагментом с usage перед `[DONE]`.
@@ -442,5 +444,12 @@ vLLM, llama.cpp, Ollama, LM Studio и прокси. Маршрут Anthropic в�
 идёт в `x-api-key` (`X_API_KEY`), любой другой ключ — bearer-токен.
 Дополнительные заголовки здесь по-прежнему доступны — для прокси, которым они
 нужны.
+
+Собственный API DeepSeek (`https://api.deepseek.com`) — кастомное подключение.
+В режиме рассуждения рассуждение приходит как `reasoning_content`, и запрос с
+инструментами должен вернуть `reasoning_content` каждого прежнего сообщения
+ассистента, в том числе шагов без вызова инструмента; иначе API отвечает 400.
+Без инструментов это поле игнорируется.
+[Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode)
 
 Содержимое сторонних страниц выше пересказано.

@@ -206,7 +206,9 @@ Endpoint: `baseUrl = https://api.openai.com/v1`, `protocol = OPENAI_CHAT`,
 - Reasoning comes back as `reasoning` and `reasoning_details` (types
   `reasoning.text`, `reasoning.summary`, `reasoning.encrypted`), and during
   tool calls those entries have to go back on the assistant message in their
-  original order. (reasoning-tokens, above)
+  original order. A model that returns plain reasoning (DeepSeek) needs only
+  the `reasoning` string on the assistant message; `reasoning_content` is
+  accepted as the same field. (reasoning-tokens, above)
 - Usage is always included; `usage.include` and `stream_options.include_usage`
   are deprecated no-ops, and a stream ends with a usage chunk before `[DONE]`.
   [Usage accounting](https://openrouter.ai/docs/guides/administration/usage-accounting.md),
@@ -419,5 +421,12 @@ the internet. The auth scheme follows from the form rather than being asked
 for: no key means `AuthScheme.NONE`, a key for an Anthropic-format server goes
 in `x-api-key` (`X_API_KEY`), and any other key is a bearer token. Extra
 headers stay available here, for proxies that want one.
+
+DeepSeek's own API (`https://api.deepseek.com`) is a custom connection. In
+thinking mode the reasoning arrives as `reasoning_content`, and a request that
+carries tools must send every earlier assistant message's `reasoning_content`
+back, also for steps that made no tool call; without it the API answers 400.
+Without tools it is ignored.
+[Thinking mode](https://api-docs.deepseek.com/guides/thinking_mode)
 
 Content from third-party pages above is paraphrased.

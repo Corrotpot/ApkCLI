@@ -563,6 +563,8 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
                                         "reasoning_details",
                                         buildJsonArray { signed.forEach { add(it) } },
                                     )
+                                } else {
+                                    replayedReasoning(request, message)?.let { (field, reasoning) -> put(field, reasoning) }
                                 }
 
                                 if (toolUses.isNotEmpty()) {
@@ -607,6 +609,36 @@ class OpenAiChatAdapter : LlmProtocolAdapter {
             }
         }
         flushToolImages()
+    }
+
+    /**
+     * The field and text an assistant message's own unsigned reasoning goes
+     * back in, or null for none. A model that thinks between tool calls
+     * (DeepSeek, Kimi, GLM, Qwen…) that is not given its reasoning back
+     * starts each step over from the user's request, "The user wants…",
+     * having lost what it had worked out; DeepSeek's own API refuses a
+     * request with tools whose assistant messages lack it, even ones it gave
+     * no reasoning for. OpenCode sends it back too.
+     *
+     * Only to the model that wrote it: a server that streamed it for that
+     * model takes it back, while another model's, sent somewhere that does
+     * not know the field, could be refused. OpenAI's own endpoint never gets
+     * it: its chat models return no reasoning, and it refuses fields it does
+     * not know. OpenRouter names the field `reasoning`; elsewhere it is
+     * `reasoning_content`, as DeepSeek and llama.cpp spell it.
+     */
+    private fun replayedReasoning(request: CompletionRequest, message: Message): Pair<String, String>? {
+        val scheme = ConnectionScheme.of(request.endpoint)
+        if (scheme == ConnectionScheme.OPENAI) return null
+        val deepSeek = scheme != ConnectionScheme.OPENROUTER &&
+            listOf(request.model.id, request.endpoint.baseUrl).any { "deepseek" in it.lowercase() }
+        val text = message.thinking.filterNot { it.redacted }.joinToString("\n\n") { it.text }
+        val field = if (scheme == ConnectionScheme.OPENROUTER) "reasoning" else "reasoning_content"
+        return when {
+            text.isNotBlank() && (deepSeek || message.model == request.model.id) -> field to text
+            deepSeek -> field to ""
+            else -> null
+        }
     }
 
     private fun imagePart(image: Block.Image): JsonObject = buildJsonObject {

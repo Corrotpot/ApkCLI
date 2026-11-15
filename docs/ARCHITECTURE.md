@@ -367,6 +367,16 @@ never stored. That requirement is why `Block.Thinking` has a `signature` field
 at all. The same applies to `reasoning_details` when a Claude model is reached
 through OpenRouter.
 
+Reasoning with no signature goes back too, on the OpenAI format: as
+`reasoning` to OpenRouter and `reasoning_content` elsewhere, on each assistant
+message the same model wrote. Without it a model that thinks between tool
+calls (DeepSeek, Kimi, GLM, Qwen) started every step over from the user's
+request ("The user wants…"), having lost what it had worked out by the last
+call. DeepSeek's own API refuses a request with tools whose assistant messages
+lack the field, so there every assistant message carries it, empty where the
+model gave no reasoning. OpenAI's endpoint gets none: its chat models return
+no reasoning, and it refuses fields it does not know.
+
 `OPENAI_RESPONSES` was removed from the protocol enum. There was no adapter for
 it, and a selectable protocol that cannot work is worse than an absent one.
 
