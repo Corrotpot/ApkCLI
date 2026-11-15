@@ -1196,6 +1196,7 @@ class AgentLoop(
             },
             dispatchSubagent = config.dispatchSubagent,
             echo = echoFor(config),
+            resultTokenBudget = resultCap(config),
         )
 
         // A call the output limit cut off is not JSON. Told as "could not
@@ -1309,12 +1310,7 @@ class AgentLoop(
         use: Block.ToolUse,
         result: ToolResult,
     ): Triple<String, String?, Boolean> {
-        val accounting = lastAccounting
-        val cap = if (accounting != null) {
-            budget.toolResultBudget(accounting)
-        } else {
-            config.settings.context.toolResultTokenCap
-        }
+        val cap = resultCap(config)
 
         if (NativeCore.estimateTokens(result.content) <= cap) {
             return Triple(result.content, result.blobId, result.truncated)
@@ -1338,6 +1334,10 @@ class AgentLoop(
         }
         return Triple(content, blobId, true)
     }
+
+    /** Tokens one tool result may take before [spillIfOversized] cuts it, as the window stands. */
+    private fun resultCap(config: TurnConfig): Int =
+        lastAccounting?.let(budget::toolResultBudget) ?: config.settings.context.toolResultTokenCap
 
     /**
      * Most recent accounting, used to size tool-result budgets.

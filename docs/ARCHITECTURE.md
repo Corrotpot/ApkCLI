@@ -1605,7 +1605,7 @@ overruns a PTY's channel, and a line longer than 4 000 characters.
 | A command's output to the model | 2 MB a stream | its start and its end, with a note |
 | A tool result in the context | 4 000 tokens (`toolResultTokenCap`), a half then a quarter as the window fills | its start and its end; the whole in a blob for `conversation_read` |
 | A page | 2 MB downloaded (8 MB at most); 40 000 characters of text (`maxChars`, up to 200 000) | the result says the download stopped, or where the rest is |
-| `fs_read` | files of 8 MB, 2 000 lines a call (up to 5 000) | refused, or "(more follows)" |
+| `fs_read` | files of 8 MB; 2 000 lines a call (up to 5 000), and whole lines only up to the tool result's budget; lines of 2 000 characters | refused, or the offset to continue at; a long line says where it was cut |
 | A stored diff | 400 lines, 48 KB | the card says so; the editor has it whole |
 | An output box on screen | 40 000 characters | its start and its end, with how much is not shown |
 | A subagent's record | 150 steps, 2 000 characters a step, 20 000 of the answer | counted, and said on its card |

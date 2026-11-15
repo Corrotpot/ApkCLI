@@ -75,6 +75,13 @@ class ToolContext(
      * [sessionId].
      */
     val changesSessionId: String = sessionId,
+    /**
+     * How many tokens this call's result may take before the rest is cut and
+     * stored as a blob; it shrinks as the window fills. A tool that can stop
+     * at a natural boundary instead (fs_read, at a whole line) fits itself
+     * to it. Null where nobody set one: then the settings' cap applies.
+     */
+    val resultTokenBudget: Int? = null,
 ) {
     /** Resolve a model-supplied path, refusing anything outside the sandbox. */
     fun resolve(path: String): File? = layout.resolveInside(workspace, path)

@@ -42,17 +42,18 @@ object ProjectInstructions {
         val text: String,
         val totalBytes: Long,
         /**
-         * Where the rest begins, as fs_read's 0-based line offset, when [text]
-         * is only the beginning; null for the whole file.
+         * How many whole lines [text] holds when it is only the beginning;
+         * null for the whole file.
          */
         val restFromLine: Int?,
     ) {
         val cut: Boolean get() = restFromLine != null
 
         /** For the prompt, after [text]: how much was left out and how to read it. Null when nothing was. */
-        fun note(): String? = restFromLine?.let { line ->
+        fun note(): String? = restFromLine?.let { shown ->
+            // fs_read's offset is the number of the first line to show.
             "[$name is ${totalBytes / 1024} KB; only its first ${MAX_BYTES / 1024} KB are above. Read the rest " +
-                "with fs_read(path: \"$name\", offset: $line) when it bears on the task.]"
+                "with fs_read(path: \"$name\", offset: ${shown + 1}) when it bears on the task.]"
         }
     }
 

@@ -146,6 +146,15 @@ private suspend fun snapshot(
     }.getOrNull()
 }
 
+/** Why [file] cannot be edited in place: it is missing, with what may have been meant, or it is no file. */
+private fun notEditable(ctx: ToolContext, file: File): ToolResult = ToolResult.error(
+    when {
+        file.isDirectory -> "${ctx.display(file)} is a directory, not a file."
+        file.exists() -> "${ctx.display(file)} is not a regular file."
+        else -> PathHints.missing(file, ctx::display) + " To create it, use fs_write."
+    },
+)
+
 /** Shared refusal text; every tool in this package resolves paths the same way. */
 internal fun outsideSandbox(ctx: ToolContext, path: String) = ToolResult.refused(
     "'$path' is outside the project sandbox. Paths must stay within " +
@@ -168,45 +177,45 @@ class FsReadTool : Tool {
         something, use grep or symbol_search; for a large file, get its outline and
         read only the lines you need.
 
-        `offset` is 0-based but printed numbers start at 1: to begin at line N, pass
-        N-1. An image (PNG, JPEG, GIF, WebP, BMP, HEIC) comes back as the picture
-        itself, at most 1568 px on its long edge, when the model is known to take
-        images: a screenshot of a bug, a design to match, an icon to check. Otherwise
-        you get its size and are told it is not shown. Other binary files
-        and text over 8 MB are refused, as are paths outside ${'$'}HOME,
-        ${'$'}PREFIX and the app's state directory. A result over the per-call
-        context budget (often a few hundred lines) loses its middle, with the full
-        text kept for conversation_read, so read large files in smaller ranges.
+        `offset` is the number of the first line to show, as the output numbers
+        lines: 1 is the first. One result holds whole lines up to its share of the
+        context, a few hundred lines of code and fewer as the context fills; when
+        the file goes on, the result ends with the offset to continue at. Lines over
+        2000 characters are cut. An image (PNG, JPEG, GIF, WebP, BMP, HEIC) comes
+        back as the picture itself, at most 1568 px on its long edge, when the model
+        is known to take images: a screenshot of a bug, a design to match, an icon to
+        check. Otherwise you get its size and are told it is not shown. Other binary
+        files and text over 8 MB are refused, as are paths outside ${'$'}HOME,
+        ${'$'}PREFIX and the app's state directory. A path that does not exist gets
+        the similar names next to it.
 
-        Output: a header giving the path, the range shown and the total line count,
-        with "(more follows)" when the file continues; then each line prefixed by its
-        number. For an image, its size in pixels, then the picture.
+        Output: a header giving the path, the lines shown and the file's line count;
+        each line after its number; and, when more follows, the offset to continue
+        at. For an image, its size in pixels, then the picture.
     """.trimIndent()
 
     override val parameters = Schema.obj(required = listOf("path")) {
         string("path", "File path, absolute or relative to the project root.")
-        integer("offset", "First line to return, 0-based.", default = 0, minimum = 0)
-        integer("limit", "Maximum lines to return.", default = 2000, minimum = 1, maximum = 5000)
+        integer("offset", "Number of the first line to show; the first line is 1.", default = 1, minimum = 1)
+        integer("limit", "Most lines to show.", default = 2000, minimum = 1, maximum = 5000)
     }
 
     override suspend fun execute(args: JsonObject, ctx: ToolContext): ToolResult {
         val path = args.str("path") ?: return ToolResult.error("'path' is required.")
         val file = ctx.resolve(path) ?: return outsideSandbox(ctx, path)
-        if (!file.exists()) {
-            return ToolResult.error(
-                "${ctx.display(file)} does not exist. Use fs_glob or fs_list to find the " +
-                    "right path.",
-            )
-        }
+        if (!file.exists()) return ToolResult.error(PathHints.missing(file, ctx::display))
         if (file.isFile && file.extension.lowercase() in IMAGE_EXTENSIONS) return readImage(file, ctx)
 
+        // 1 is the first line, as the output numbers them; 0, which the
+        // tool used to take for the first line, still means it.
+        val first = args.int("offset", 1).coerceAtLeast(1)
         return try {
             val result = NativeCore.search(
                 "read",
                 jsonOf(
                     "path" to file.absolutePath,
-                    "offset" to args.int("offset", 0),
-                    "limit" to args.int("limit", 2000),
+                    "offset" to first - 1,
+                    "limit" to args.int("limit", 2000).coerceIn(1, 5000),
                 ),
             )
             if (result.bool("binary")) {
@@ -216,28 +225,47 @@ class FsReadTool : Tool {
                 )
             }
 
-            val lines = result.objects("lines")
-            val total = result.int("totalLines")
-            val from = result.int("from", 1)
-            val to = result.int("to", total)
-            val body = lines.joinToString("\n") { line ->
-                "${line.int("n").toString().padStart(5)}  ${line.str("text", "")}"
+            // The reader splits at every line break, so a file ending in one
+            // came back with an empty line after its last.
+            val total = FsReadPage.lineCount(
+                splitCount = result.int("totalLines"),
+                endsWithNewline = FsReadPage.endsWithNewline(file),
+                empty = result.int("size") == 0,
+            )
+            if (total == 0) return ToolResult.ok("${ctx.display(file)} is empty.")
+            if (first > total) {
+                return ToolResult.ok("${ctx.display(file)} has $total lines; offset $first is past its end.")
             }
+            val read = result.objects("lines")
+                .map { FsReadPage.Line(it.int("n"), FsReadPage.shown(it.str("text", ""))) }
+                .filter { it.number <= total }
 
-            val header = buildString {
-                append(ctx.display(file))
-                append("  lines $from-$to of $total")
-                if (!result.bool("eof")) append("  (more follows)")
+            // Whole lines up to the result's share of the context, rather
+            // than a page the spill would then cut through the middle. The
+            // header and the note after take the rest.
+            val budget = (ctx.resultTokenBudget ?: ctx.settings.context.toolResultTokenCap) - PAGE_OVERHEAD_TOKENS
+            val lines = FsReadPage.fit(read) { NativeCore.estimateTokens(it) <= budget }
+            // Empty only when the file shrank between the two looks at it.
+            val last = lines.lastOrNull()?.number
+                ?: return ToolResult.ok("${ctx.display(file)} has $total lines; offset $first is past its end.")
+
+            val content = buildString {
+                append(ctx.display(file)).append("  lines ").append(first).append('-').append(last)
+                append(" of ").append(total).append('\n')
+                append(FsReadPage.body(lines))
+                if (last < total) {
+                    append("\n\n[Lines ").append(last + 1).append('-').append(total)
+                    append(" not shown. Continue with offset: ").append(last + 1).append(".]")
+                }
             }
-
             ToolResult.ok(
-                content = "$header\n$body",
+                content = content,
                 display = ToolDisplay.FileContent(
                     path = ctx.display(file),
-                    text = lines.joinToString("\n") { it.str("text", "") },
-                    firstLine = from,
+                    text = lines.joinToString("\n") { it.text },
+                    firstLine = first,
                     totalLines = total,
-                    truncated = !result.bool("eof"),
+                    truncated = last < total,
                 ),
             )
         } catch (e: NativeException) {
@@ -291,6 +319,9 @@ class FsReadTool : Tool {
 
         /** Past this an image is not decoded: a phone's photo is a few megabytes. */
         const val MAX_IMAGE_BYTES = 40L * 1024 * 1024
+
+        /** What a page's header and its note on where to go on take of the result's budget. */
+        const val PAGE_OVERHEAD_TOKENS = 64
     }
 }
 
@@ -448,9 +479,7 @@ class FsEditTool : Tool {
             ?: return ToolResult.error("'replace' is required; pass \"\" to delete the matched text.")
         val file = ctx.resolve(path) ?: return outsideSandbox(ctx, path)
 
-        if (!file.isFile) {
-            return ToolResult.error("${ctx.display(file)} is not an existing file.")
-        }
+        if (!file.isFile) return notEditable(ctx, file)
 
         return withContext(Dispatchers.IO) {
             val before = when (val read = readFileText(file)) {
@@ -563,7 +592,7 @@ class FsMultiEditTool : Tool {
         val edits = args.objects("edits")
         if (edits.isEmpty()) return ToolResult.error("'edits' is empty.")
         val file = ctx.resolve(path) ?: return outsideSandbox(ctx, path)
-        if (!file.isFile) return ToolResult.error("${ctx.display(file)} is not an existing file.")
+        if (!file.isFile) return notEditable(ctx, file)
 
         return withContext(Dispatchers.IO) {
             val before = when (val read = readFileText(file)) {
@@ -675,7 +704,7 @@ class FsApplyPatchTool : Tool {
         val path = args.str("path") ?: return ToolResult.error("'path' is required.")
         val patch = args.str("patch") ?: return ToolResult.error("'patch' is required.")
         val file = ctx.resolve(path) ?: return outsideSandbox(ctx, path)
-        if (!file.isFile) return ToolResult.error("${ctx.display(file)} is not an existing file.")
+        if (!file.isFile) return notEditable(ctx, file)
 
         return withContext(Dispatchers.IO) {
             val before = when (val read = readFileText(file)) {

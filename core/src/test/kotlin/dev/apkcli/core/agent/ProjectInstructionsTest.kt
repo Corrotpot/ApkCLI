@@ -45,7 +45,9 @@ class ProjectInstructionsTest {
         assertEquals(lines.subList(0, shown.size), shown)
         assertEquals(shown.size, loaded.restFromLine)
         val note = checkNotNull(loaded.note())
-        assertTrue(note, note.contains("fs_read(path: \"AGENTS.md\", offset: ${shown.size})"))
+        // fs_read's offset is the number of the first line to show: the one after the last above.
+        val next = shown.size + 1
+        assertTrue(note, note.contains("fs_read(path: \"AGENTS.md\", offset: $next)"))
         assertTrue(note, note.contains("AGENTS.md is ${loaded.totalBytes / 1024} KB"))
     }
 
