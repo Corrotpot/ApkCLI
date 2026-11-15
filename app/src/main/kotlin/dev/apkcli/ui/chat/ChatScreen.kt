@@ -504,7 +504,7 @@ fun ChatScreen(
             }
             val settings = state.settings
             val model = settings.activeModel
-            val reasoning = settings.activeEndpoint?.let { endpoint -> model?.let { settings.reasoningEffortFor(endpoint.id, it) } }
+            val reasoning = settings.activeEndpoint?.let { endpoint -> model?.let { settings.reasoningChoiceFor(endpoint.id, it) } }
             val reasoningShown = model != null && (model.reasoningEfforts.isNotEmpty() || model.reasoning != ReasoningSupport.NONE)
             QueuedPlaque(state.queued, viewModel::withdrawQueued)
             ComposerBox(
@@ -584,7 +584,7 @@ fun ChatScreen(
         )
         ChatSheet.REASONING -> ReasoningSheet(
             model = settings.activeModel,
-            selected = settings.activeEndpoint?.let { endpoint -> settings.activeModel?.let { settings.reasoningEffortFor(endpoint.id, it) } },
+            selected = settings.activeEndpoint?.let { endpoint -> settings.activeModel?.let { settings.reasoningChoiceFor(endpoint.id, it) } },
             onSelect = { level ->
                 viewModel.setReasoningEffort(level)
                 sheet = null

@@ -589,6 +589,14 @@ data class AppSettings(
     /** The reasoning level a request to [model] on [endpointId] carries; null sends none. */
     fun reasoningEffortFor(endpointId: String, model: ModelSpec): String? =
         ReasoningLevels.effective(model, reasoningEfforts[ReasoningLevels.key(endpointId, model.id)])
+
+    /**
+     * The level picked for [model] on [endpointId], as the reasoning picker
+     * marks it: null for Default, which leaves the level to the model; a pick
+     * the model no longer offers, as the level sent in its place.
+     */
+    fun reasoningChoiceFor(endpointId: String, model: ModelSpec): String? =
+        reasoningEfforts[ReasoningLevels.key(endpointId, model.id)]?.let { ReasoningLevels.effective(model, it) }
 }
 
 @Serializable

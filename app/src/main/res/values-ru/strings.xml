@@ -531,15 +531,9 @@
     <string name="md_copied">Скопировано</string>
 
     <!-- Уровни рассуждения, как их публикует модель -->
-    <string name="reasoning_level_none">Выкл</string>
-    <string name="reasoning_level_minimal">Минимальное</string>
-    <string name="reasoning_level_low">Низкое</string>
-    <string name="reasoning_level_medium">Среднее</string>
-    <string name="reasoning_level_high">Высокое</string>
-    <string name="reasoning_level_xhigh">Очень высокое</string>
-    <string name="reasoning_level_max">Максимальное</string>
     <string name="reasoning_model_default">по умолчанию у модели</string>
-    <string name="reasoning_default_chip">По умолчанию</string>
+    <string name="reasoning_default_chip">Default</string>
+    <string name="reasoning_default_named">Уровень самой модели: %1$s</string>
     <string name="reasoning_default_item_desc">Уровень не отправляется, модель решает сама</string>
     <string name="reasoning_not_published">Эндпоинт не публикует уровни рассуждения для %1$s, поэтому используется настройка модели по умолчанию.</string>
 

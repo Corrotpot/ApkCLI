@@ -310,8 +310,10 @@ fun schemeIcon(scheme: ConnectionScheme) = when (scheme) {
 
 /**
  * The model's own levels, as its endpoint publishes them — no scale of our
- * own. "Default" is a choice when the endpoint names no default: nothing is
- * sent and the model decides.
+ * own — under "Default", as OpenCode lists them. Default leaves the level to
+ * the model: the one its endpoint names, or none sent at all.
+ *
+ * @param selected the pick, null for Default ([dev.apkcli.core.model.AppSettings.reasoningChoiceFor]).
  */
 @Composable
 fun ReasoningSheet(
@@ -321,7 +323,8 @@ fun ReasoningSheet(
     onDismiss: () -> Unit,
 ) {
     val levels = model?.reasoningEfforts.orEmpty()
-    val offersDefault = levels.isNotEmpty() && model?.defaultReasoningEffort == null
+    val offersDefault = levels.isNotEmpty()
+    val modelDefault = model?.defaultReasoningEffort
     Sheet(onDismiss = onDismiss) {
         SheetHead(
             title = stringResource(R.string.reasoning_sheet_title),
@@ -342,7 +345,11 @@ fun ReasoningSheet(
                     if (offersDefault) {
                         RadioRow(
                             title = stringResource(R.string.reasoning_default_chip),
-                            subtitle = stringResource(R.string.reasoning_default_item_desc),
+                            subtitle = if (modelDefault != null) {
+                                stringResource(R.string.reasoning_default_named, reasoningLevelLabel(modelDefault))
+                            } else {
+                                stringResource(R.string.reasoning_default_item_desc)
+                            },
                             selected = selected == null,
                             onClick = { onSelect(null) },
                         )

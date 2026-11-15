@@ -21,22 +21,11 @@ import dev.apkcli.core.store.BuiltInAgents
  */
 
 /**
- * A reasoning level as the endpoint spells it (`xhigh`), in the user's
- * language ("Очень высокое"). An unknown spelling is shown as sent,
- * capitalised, rather than guessed at.
+ * A reasoning level as OpenCode names it: the endpoint's own spelling,
+ * capitalised ("None", "Low", "Xhigh", "Max"), in every UI language, so the
+ * picker says exactly what is sent.
  */
-@Composable
-@ReadOnlyComposable
-fun reasoningLevelLabel(level: String): String = when (level) {
-    "none" -> stringResource(R.string.reasoning_level_none)
-    "minimal" -> stringResource(R.string.reasoning_level_minimal)
-    "low" -> stringResource(R.string.reasoning_level_low)
-    "medium" -> stringResource(R.string.reasoning_level_medium)
-    "high" -> stringResource(R.string.reasoning_level_high)
-    "xhigh" -> stringResource(R.string.reasoning_level_xhigh)
-    "max" -> stringResource(R.string.reasoning_level_max)
-    else -> level.replaceFirstChar { it.uppercaseChar() }
-}
+fun reasoningLevelLabel(level: String): String = level.replaceFirstChar { it.uppercaseChar() }
 
 /** A kind of action in Settings › Rules. */
 @StringRes

@@ -527,15 +527,9 @@
     <string name="md_copied">Copied</string>
 
     <!-- Reasoning levels, as models publish them -->
-    <string name="reasoning_level_none">Off</string>
-    <string name="reasoning_level_minimal">Minimal</string>
-    <string name="reasoning_level_low">Low</string>
-    <string name="reasoning_level_medium">Medium</string>
-    <string name="reasoning_level_high">High</string>
-    <string name="reasoning_level_xhigh">Extra high</string>
-    <string name="reasoning_level_max">Max</string>
     <string name="reasoning_model_default">model default</string>
     <string name="reasoning_default_chip">Default</string>
+    <string name="reasoning_default_named">The model\'s own level: %1$s</string>
     <string name="reasoning_default_item_desc">No level is sent; the model uses its own</string>
     <string name="reasoning_not_published">The endpoint does not publish reasoning levels for %1$s, so the model\'s own default is used.</string>
 

@@ -192,7 +192,7 @@ fun SettingsScreen(
                 )
                 CardDivider()
                 val model = settings.activeModel
-                val level = settings.activeEndpoint?.let { endpoint -> model?.let { settings.reasoningEffortFor(endpoint.id, it) } }
+                val level = settings.activeEndpoint?.let { endpoint -> model?.let { settings.reasoningChoiceFor(endpoint.id, it) } }
                 val reasons = model != null && (model.reasoningEfforts.isNotEmpty() || model.reasoning != ReasoningSupport.NONE)
                 ListRow(
                     title = stringResource(R.string.settings_reasoning),
@@ -323,7 +323,7 @@ fun SettingsScreen(
 
         SettingsSheet.Reasoning -> ReasoningSheet(
             model = settings.activeModel,
-            selected = settings.activeEndpoint?.let { endpoint -> settings.activeModel?.let { settings.reasoningEffortFor(endpoint.id, it) } },
+            selected = settings.activeEndpoint?.let { endpoint -> settings.activeModel?.let { settings.reasoningChoiceFor(endpoint.id, it) } },
             onSelect = { level ->
                 viewModel.setReasoningEffort(level)
                 sheet = null
