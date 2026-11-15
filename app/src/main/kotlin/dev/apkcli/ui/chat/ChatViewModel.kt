@@ -15,6 +15,8 @@ import dev.apkcli.core.agent.ApprovalGate
 import dev.apkcli.core.agent.Compactor
 import dev.apkcli.core.agent.ContextBudget
 import dev.apkcli.core.agent.MemoryScopes
+import dev.apkcli.core.agent.PreviewPage
+import dev.apkcli.core.agent.PreviewScript
 import dev.apkcli.core.agent.ProjectInstructions
 import dev.apkcli.core.agent.ToolDisplay
 import dev.apkcli.core.agent.TurnInbox
@@ -44,6 +46,7 @@ import dev.apkcli.ui.chat.components.toolTargetPartial
 import dev.apkcli.ui.chat.find.FindHit
 import dev.apkcli.ui.chat.sheets.approvalTitleRes
 import dev.apkcli.ui.locale.AppLocales
+import dev.apkcli.ui.preview.PreviewBus
 import dev.apkcli.ui.text.UiText
 import dev.apkcli.ui.text.explanationText
 import dev.apkcli.ui.text.headlineText
@@ -1787,6 +1790,15 @@ class ChatViewModel(
     override suspend fun openFiles(): List<String> = EditorBus.openFiles.first()
 
     override suspend fun activeFile(): String? = EditorBus.activeFile.first()
+
+    // The preview's browser lives with the activity; with none, null says the app is not on screen.
+    override suspend fun previewOpen(address: String, screenshot: Boolean): PreviewPage? =
+        PreviewBus.agent?.open(address, screenshot)
+
+    override suspend fun previewLook(screenshot: Boolean): PreviewPage? = PreviewBus.agent?.look(screenshot)
+
+    override suspend fun previewEval(script: String, waitMs: Long, screenshot: Boolean): PreviewScript? =
+        PreviewBus.agent?.eval(script, waitMs, screenshot)
 
     /* --------------------------------------------------------- sessions */
 

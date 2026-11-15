@@ -149,6 +149,21 @@ interface UiBridge {
      */
     suspend fun activeFile(): String? = openFiles().firstOrNull()
 
+    /**
+     * Load [address] in the preview, the app's own browser in its Preview
+     * tab, bring it on screen and wait for the page: a dev server's address,
+     * its port, or a path of a project file. Each preview call brings it on
+     * screen, where alone a page is drawn. Null when there is no preview to
+     * ask: a subagent, or no app on screen.
+     */
+    suspend fun previewOpen(address: String, screenshot: Boolean): PreviewPage? = null
+
+    /** What the preview shows now; null as for [previewOpen]. */
+    suspend fun previewLook(screenshot: Boolean): PreviewPage? = null
+
+    /** Run [script] in the page the preview shows, wait [waitMs], and report; null as for [previewOpen]. */
+    suspend fun previewEval(script: String, waitMs: Long, screenshot: Boolean): PreviewScript? = null
+
     // No `ask`: questions go in the reply, answered in the next message.
     // See the note where the `ask_user` tool used to be, in AgentTools.
 

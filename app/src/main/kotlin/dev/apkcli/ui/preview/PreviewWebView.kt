@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
+import android.webkit.ConsoleMessage
 import android.webkit.MimeTypeMap
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
@@ -16,6 +17,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import dev.apkcli.R
+import dev.apkcli.core.agent.ConsoleLine
 import java.io.ByteArrayInputStream
 import java.io.File
 
@@ -50,6 +52,19 @@ internal object PreviewWebView {
 
             override fun onReceivedTitle(view: WebView, title: String?) {
                 state.title = title?.takeIf { it.isNotBlank() }
+            }
+
+            /** Kept for the agent's preview tools, and still written to the log. */
+            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                state.onConsole(
+                    ConsoleLine(
+                        level = message.messageLevel()?.name?.lowercase() ?: "log",
+                        message = message.message().orEmpty(),
+                        source = message.sourceId(),
+                        line = message.lineNumber(),
+                    ),
+                )
+                return false
             }
         }
     }
@@ -87,7 +102,15 @@ internal object PreviewWebView {
         }
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-            if (url != state.failed) state.failed = null
+            // The error page of an address that failed keeps that failure.
+            if (url != state.failed) {
+                state.failed = null
+                state.onPageStarted()
+            }
+        }
+
+        override fun onPageFinished(view: WebView, url: String?) {
+            state.onLoadEnded()
         }
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
@@ -97,7 +120,17 @@ internal object PreviewWebView {
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             // A page that does not answer, not a picture on it that does not.
-            if (request.isForMainFrame) state.failed = request.url.toString()
+            if (request.isForMainFrame) {
+                state.failed = request.url.toString()
+                state.failureReason = error.description?.toString()?.takeIf { it.isNotBlank() } ?: "error ${error.errorCode}"
+                state.onLoadEnded()
+            }
+        }
+
+        override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+            if (request.isForMainFrame) {
+                state.httpError = "HTTP ${errorResponse.statusCode} ${errorResponse.reasonPhrase.orEmpty()}".trim()
+            }
         }
 
         /**

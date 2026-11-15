@@ -376,7 +376,7 @@
     <string name="rule_delete">Deleting files</string>
     <string name="rule_delete_sub">Deleting, moving and reverting edits</string>
     <string name="rule_commands">Commands</string>
-    <string name="rule_commands_sub">Terminal commands, builds, tests and HTTP requests</string>
+    <string name="rule_commands_sub">Terminal commands, builds, tests, HTTP requests and scripts in the preview</string>
     <string name="rule_background">Background jobs</string>
     <string name="rule_background_sub">Starting and stopping long commands</string>
     <string name="rule_packages">Packages</string>
@@ -512,6 +512,9 @@
     <string name="tool_name_memory_write">Remember</string>
     <string name="tool_name_memory_forget">Forget</string>
     <string name="tool_name_web_fetch">Open web page</string>
+    <string name="tool_name_preview_open">Open in preview</string>
+    <string name="tool_name_preview_look">Look at page</string>
+    <string name="tool_name_preview_eval">Run in page</string>
     <string name="tool_name_web_search">Web search</string>
     <string name="tool_name_pkg_install">Install packages</string>
     <string name="tool_name_pkg_search">Find packages</string>
@@ -576,6 +579,7 @@
     <string name="approval_title_command">Run the command?</string>
     <string name="approval_title_delete">Delete?</string>
     <string name="approval_title_edit">Edit the file?</string>
+    <string name="approval_title_preview_eval">Run a script in the preview?</string>
     <string name="approval_title_fetch">Open the page?</string>
     <string name="approval_title_install">Install packages?</string>
     <string name="approval_title_move">Move?</string>

@@ -377,7 +377,7 @@
     <string name="rule_delete">Удаление файлов</string>
     <string name="rule_delete_sub">Удаление, перемещение и откат правок</string>
     <string name="rule_commands">Команды</string>
-    <string name="rule_commands_sub">Команды в терминале, сборка, тесты и HTTP-запросы</string>
+    <string name="rule_commands_sub">Команды в терминале, сборка, тесты, HTTP-запросы и скрипты в просмотре</string>
     <string name="rule_background">Фоновые процессы</string>
     <string name="rule_background_sub">Запуск и остановка долгих команд</string>
     <string name="rule_packages">Пакеты</string>
@@ -516,6 +516,9 @@
     <string name="tool_name_memory_write">Запомнить</string>
     <string name="tool_name_memory_forget">Забыть</string>
     <string name="tool_name_web_fetch">Открыть страницу</string>
+    <string name="tool_name_preview_open">Открыть в просмотре</string>
+    <string name="tool_name_preview_look">Посмотреть страницу</string>
+    <string name="tool_name_preview_eval">Скрипт на странице</string>
     <string name="tool_name_web_search">Поиск в интернете</string>
     <string name="tool_name_pkg_install">Установка пакетов</string>
     <string name="tool_name_pkg_search">Поиск пакетов</string>
@@ -578,6 +581,7 @@
     <string name="approval_title_command">Запустить команду?</string>
     <string name="approval_title_delete">Удалить?</string>
     <string name="approval_title_edit">Изменить файл?</string>
+    <string name="approval_title_preview_eval">Выполнить скрипт в просмотре?</string>
     <string name="approval_title_fetch">Открыть страницу?</string>
     <string name="approval_title_install">Установить пакеты?</string>
     <string name="approval_title_move">Переместить?</string>

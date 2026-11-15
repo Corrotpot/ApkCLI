@@ -51,6 +51,9 @@ internal fun toolTitleRes(name: String): Int? = when (name) {
     "memory_forget" -> R.string.tool_name_memory_forget
     "web_fetch" -> R.string.tool_name_web_fetch
     "web_search" -> R.string.tool_name_web_search
+    "preview_open" -> R.string.tool_name_preview_open
+    "preview_look" -> R.string.tool_name_preview_look
+    "preview_eval" -> R.string.tool_name_preview_eval
     "pkg_install" -> R.string.tool_name_pkg_install
     "pkg_search" -> R.string.tool_name_pkg_search
     "pkg_remove" -> R.string.tool_name_pkg_remove
@@ -81,6 +84,7 @@ internal fun toolTarget(name: String, argumentsJson: String): String? {
         "memory_write", "memory_read", "memory_forget" -> str("key")
         "conversation_read" -> str("blobId") ?: str("fromSeq")?.let { "#$it" }
         "sh_job_output", "sh_job_kill" -> str("id")
+        "preview_eval" -> str("script")
         else -> null
     } ?: TARGET_KEYS.firstNotNullOfOrNull { key -> str(key) ?: list(key) }
 
@@ -100,6 +104,7 @@ internal fun toolTargetPartial(name: String, head: String): String? {
         "fs_move" -> listOf("from")
         "sh_exec", "sh_background", "build_run", "test_run" -> listOf("command")
         "subagent_dispatch" -> listOf("prompt")
+        "preview_eval" -> listOf("script")
         else -> TARGET_KEYS
     }
     for (key in keys) {

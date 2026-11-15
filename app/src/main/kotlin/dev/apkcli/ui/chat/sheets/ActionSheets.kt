@@ -93,6 +93,8 @@ fun ApprovalSheet(
     }
     fun arg(key: String) = (args?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
     val command = arg("command")
+    // A script for the preview's page is approved as written, whole.
+    val script = arg("script")
     val target = arg("path") ?: arg("url") ?: arg("from")?.let { from -> arg("to")?.let { "$from → $it" } ?: from }
 
     // Handing a task to a subagent: the task, in words, is what is approved.
@@ -104,7 +106,7 @@ fun ApprovalSheet(
             icon = when (approval.toolName) {
                 "sh_exec", "sh_background", "build_run", "test_run" -> Codicons.Terminal
                 "fs_delete", "pkg_remove" -> Codicons.Trash
-                "web_fetch" -> Codicons.Globe
+                "web_fetch", "preview_eval" -> Codicons.Globe
                 "pkg_install" -> Codicons.Package
                 "subagent_dispatch" -> Codicons.Hubot
                 else -> Codicons.Edit
@@ -158,6 +160,7 @@ fun ApprovalSheet(
                 // is approved is what runs, however long.
                 val shown = when {
                     command != null -> "~/projects/$projectName $ $command"
+                    script != null -> script
                     target != null -> target
                     else -> approval.summary
                 }
@@ -231,6 +234,7 @@ internal fun approvalTitleRes(tool: String): Int? = when (tool) {
     "pkg_install" -> R.string.approval_title_install
     "pkg_remove" -> R.string.approval_title_uninstall
     "web_fetch" -> R.string.approval_title_fetch
+    "preview_eval" -> R.string.approval_title_preview_eval
     "build_run" -> R.string.approval_title_build
     "test_run" -> R.string.approval_title_test
     else -> null

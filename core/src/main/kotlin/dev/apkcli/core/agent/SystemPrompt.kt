@@ -439,6 +439,14 @@ object SystemPrompt {
                 appendLine("  at a line. Worth it when your answer is about one place in the code;")
                 appendLine("  they see what you changed without going to find it.")
             }
+            if ("preview_open" in names) {
+                appendLine("- **A site you build**: the app has its own browser, the Preview tab.")
+                appendLine("  `preview_open` loads a dev server's address or a project file there and")
+                appendLine("  shows it to the user; `preview_look` returns what it shows, its console")
+                appendLine("  and its text; `preview_eval` runs JavaScript in the page, to click or read")
+                appendLine("  it. No other browser can be started from a command here (`am start` is")
+                appendLine("  refused), so show pages there and check them yourself after a change.")
+            }
         }
     }
 

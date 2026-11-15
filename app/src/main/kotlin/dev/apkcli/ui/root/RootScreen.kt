@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -51,6 +52,8 @@ import dev.apkcli.ui.home.ProjectsViewModel
 import dev.apkcli.ui.icons.Codicons
 import dev.apkcli.ui.nav.Destination
 import dev.apkcli.ui.nav.rememberNavigator
+import dev.apkcli.ui.preview.PreviewAgent
+import dev.apkcli.ui.preview.PreviewBus
 import dev.apkcli.ui.preview.PreviewState
 import dev.apkcli.ui.preview.PreviewTab
 import dev.apkcli.ui.settings.SettingsScreen
@@ -110,6 +113,23 @@ fun RootScreen(
     // was while the user is in another tab or in Settings.
     val previewState = remember { PreviewState(context) }
     DisposableEffect(previewState) { onDispose { previewState.destroy() } }
+    // The agent's preview tools reach the browser through this while the
+    // activity is here; each brings the preview's pane in front.
+    val previewWorkspace by rememberUpdatedState(chatState.workspace)
+    val previewAgent = remember(previewState) {
+        PreviewAgent(
+            state = previewState,
+            workspace = { previewWorkspace },
+            show = {
+                if (navigator.current != Destination.Workspace) navigator.navigate(Destination.Workspace)
+                workbenchViewModel.update { it.copy(focus = Pane.PREVIEW, side = Pane.PREVIEW) }
+            },
+        )
+    }
+    DisposableEffect(previewAgent) {
+        PreviewBus.agent = previewAgent
+        onDispose { if (PreviewBus.agent === previewAgent) PreviewBus.agent = null }
+    }
     var agentSheet by rememberSaveable { mutableStateOf(false) }
     // Settings opened from the mode sheet's "Rules": it scrolls to them.
     var showRules by rememberSaveable { mutableStateOf(false) }

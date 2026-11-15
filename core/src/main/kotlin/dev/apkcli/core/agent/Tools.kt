@@ -24,6 +24,9 @@ import dev.apkcli.core.agent.tools.OutlineTool
 import dev.apkcli.core.agent.tools.PkgInstallTool
 import dev.apkcli.core.agent.tools.PkgRemoveTool
 import dev.apkcli.core.agent.tools.PkgSearchTool
+import dev.apkcli.core.agent.tools.PreviewEvalTool
+import dev.apkcli.core.agent.tools.PreviewLookTool
+import dev.apkcli.core.agent.tools.PreviewOpenTool
 import dev.apkcli.core.agent.tools.ProjectTreeTool
 import dev.apkcli.core.agent.tools.RevertEditTool
 import dev.apkcli.core.agent.tools.ShBackgroundTool
@@ -111,6 +114,11 @@ object Tools {
             add(TaskListTool())
             add(SubagentDispatchTool())
             add(EditorOpenTool())
+
+            // --- the preview, the app's own browser -------------------------
+            add(PreviewOpenTool())
+            add(PreviewLookTool())
+            add(PreviewEvalTool())
 
             // --- memory and history -----------------------------------------
             add(ConversationSearchTool())

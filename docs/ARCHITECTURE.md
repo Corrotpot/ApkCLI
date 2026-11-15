@@ -1579,6 +1579,21 @@ for them. One WebView lives as long as the activity, so a page keeps its place
 and state while the user is in another tab, and each project remembers the
 address it showed last.
 
+The agent drives the same browser, as OpenCode's drives the one in its
+desktop app. `preview_open` loads an address or a project file and waits for
+the page, up to 20 s and then 0.8 s for its modules; `preview_look` reports
+what it shows; `preview_eval` runs JavaScript in the page by an indirect
+`eval`, with the script passed in as a JSON string, its value returned as
+JSON (an element as its HTML) and a Promise awaited up to `waitMs`. Each
+reports the console since the last preview call (errors and warnings first
+when there are more than 30), the visible text as untrusted data, and, for a
+model known to take images, a picture: the WebView drawn into a bitmap, at
+most 1 568 px on its long edge. Each brings the preview's pane in front,
+because a WebView off screen is not drawn; on a phone held upright that takes
+the screen from the chat. The tools reach the activity's browser through
+`PreviewBus`, and say so when there is no activity. A script asks for approval
+under the commands rule; opening and looking do not.
+
 ## Python packages with native code
 
 PyPI has almost no Android wheels, so pip compiles C and Rust extensions on
@@ -1678,6 +1693,9 @@ whole; the agent loop; the terminals; the UI; subagents):
   the JVM searched both services and read a page Stack Overflow refused
   through Parallel. No turn in the app has used them yet. Their free limits
   are not published, so how often a busy chat meets a rest is not known.
+* **The preview tools have not run on a device.** What they tell the model
+  is unit-tested (`PreviewReportTest`); the WebView side (waiting for a load,
+  the console, the drawn picture, the script wrapper) is compiled only.
 * **Checked at one width.** The history sheet, find in the chat and the top
   bar have run on a 411 dp emulator screen; 360 dp, where the top bar moves
   its icons into the menu, has not been looked at in the app.
