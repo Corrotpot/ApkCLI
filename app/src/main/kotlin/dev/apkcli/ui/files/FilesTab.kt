@@ -1,5 +1,8 @@
 package dev.apkcli.ui.files
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -99,6 +102,8 @@ fun FilesTab(
     explorer: ExplorerViewModel,
     editor: EditorViewModel,
     changes: List<ChangeLedger.FileChange>,
+    /** Files picked from the device's storage, for a folder of the project: the question whether to add them is asked elsewhere. */
+    onAddFromDevice: (List<Uri>, File) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tree by explorer.state.collectAsStateWithLifecycle()
@@ -137,6 +142,7 @@ fun FilesTab(
                 hasTabs = editorState.tabs.isNotEmpty(),
                 onOpenFile = openFile,
                 onShowEditor = { explorer.showTree(false) },
+                onAddFromDevice = onAddFromDevice,
             )
         },
         second = {
@@ -181,6 +187,7 @@ private fun TreeView(
     hasTabs: Boolean,
     onOpenFile: (String) -> Unit,
     onShowEditor: () -> Unit,
+    onAddFromDevice: (List<Uri>, File) -> Unit,
 ) {
     var sheet by remember { mutableStateOf<TreeSheet?>(null) }
     var menuFor by remember { mutableStateOf<String?>(null) }
@@ -211,6 +218,23 @@ private fun TreeView(
         if (!started) toaster.show(noHandler, Codicons.Warning)
     }
 
+    // In from the device: the system's picker, any folder, any type, several
+    // at once, for the folder it was asked from. Saved, since the app may be
+    // stopped while the picker is up.
+    var pickInto by rememberSaveable { mutableStateOf<String?>(null) }
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val folder = pickInto?.let(::File) ?: root
+        pickInto = null
+        if (uris.isNotEmpty() && folder != null) onAddFromDevice(uris, folder)
+    }
+    val addFromDevice: (String) -> Unit = { folder ->
+        pickInto = folder
+        if (runCatching { pickFiles.launch(arrayOf("*/*")) }.isFailure) {
+            pickInto = null
+            toaster.show(noHandler, Codicons.Warning)
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         // `.tree-head`
         Row(
@@ -237,6 +261,12 @@ private fun TreeView(
                 Codicons.NewFolder,
                 stringResource(R.string.explorer_new_folder),
                 onClick = { root?.let { sheet = TreeSheet.NewItem(targetDir(state, it), directory = true) } },
+                size = IconBtnSize.Small,
+            )
+            IconBtn(
+                Codicons.Attach,
+                stringResource(R.string.explorer_add_from_device),
+                onClick = { root?.let { addFromDevice(targetDir(state, it)) } },
                 size = IconBtnSize.Small,
             )
             IconBtn(Codicons.Refresh, stringResource(R.string.explorer_refresh), onClick = explorer::refresh, size = IconBtnSize.Small)
@@ -305,6 +335,10 @@ private fun TreeView(
                                         menuFor = null
                                         sheet = TreeSheet.NewItem(row.path, directory = true)
                                     })
+                                    MenuItem(stringResource(R.string.explorer_add_from_device), icon = Codicons.Attach, onClick = {
+                                        menuFor = null
+                                        addFromDevice(row.path)
+                                    })
                                 }
                                 MenuItem(stringResource(R.string.explorer_rename), icon = Codicons.Edit, onClick = {
                                     menuFor = null
@@ -344,6 +378,10 @@ private fun TreeView(
                         MenuItem(stringResource(R.string.explorer_new_folder), icon = Codicons.NewFolder, onClick = {
                             rootMenuOpen = false
                             sheet = TreeSheet.NewItem(root.absolutePath, directory = true)
+                        })
+                        MenuItem(stringResource(R.string.explorer_add_from_device), icon = Codicons.Attach, onClick = {
+                            rootMenuOpen = false
+                            addFromDevice(root.absolutePath)
                         })
                         MenuSeparator()
                         MenuItem(stringResource(R.string.explorer_open_externally), icon = Codicons.LinkExternal, onClick = {

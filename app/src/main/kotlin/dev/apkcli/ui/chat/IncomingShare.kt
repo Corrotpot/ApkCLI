@@ -7,9 +7,13 @@ import android.webkit.MimeTypeMap
 import androidx.core.content.IntentCompat
 import dev.apkcli.ui.chat.components.fenced
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * What another app handed over through Share: words, files, or both.
@@ -80,7 +84,7 @@ internal object IncomingFiles {
      */
     fun targetName(displayName: String): String? {
         val name = displayName.replace('\\', '/').substringAfterLast('/').trim()
-        if (name.isEmpty() || name == "." || name == ".." || name.toByteArray().size > MAX_NAME_BYTES) return null
+        if (name.isEmpty() || name == "." || name == ".." || '\u0000' in name || name.toByteArray().size > MAX_NAME_BYTES) return null
         val stem = name.substringBeforeLast('.').replace(COPY_NUMBER, "")
         val extension = name.substringAfterLast('.', "")
         return INSTRUCTIONS.firstOrNull { "$stem.$extension".equals(it, ignoreCase = true) } ?: name
@@ -88,6 +92,86 @@ internal object IncomingFiles {
 
     /** Whether agents read [name] on every request. */
     fun isInstructions(name: String): Boolean = name in INSTRUCTIONS
+
+    /**
+     * [name], or with a copy number when [taken] has it already: two files
+     * picked from different folders under one name do not overwrite each
+     * other. `.gitignore` is a name, not an extension.
+     */
+    fun unique(name: String, taken: Set<String>): String {
+        if (name !in taken) return name
+        val dot = name.lastIndexOf('.')
+        val (base, extension) = if (dot > 0) name.substring(0, dot) to name.substring(dot) else name to ""
+        var n = 2
+        while ("$base ($n)$extension" in taken) n++
+        return "$base ($n)$extension"
+    }
+
+    /** Whether [file] is [dir] or inside it, links resolved. */
+    fun isInside(file: File, dir: File): Boolean {
+        val inner = runCatching { file.canonicalFile }.getOrNull() ?: return false
+        val outer = runCatching { dir.canonicalFile }.getOrNull() ?: return false
+        return inner == outer || inner.path.startsWith(outer.path + File.separator)
+    }
+
+    /** Where an offer's files go: [folder] when it is inside [project], else the project's root. */
+    fun intoFolder(folder: File?, project: File): File {
+        val top = runCatching { project.canonicalFile }.getOrDefault(project)
+        val into = folder?.let { runCatching { it.canonicalFile }.getOrNull() } ?: return top
+        return if (isInside(into, top)) into else top
+    }
+
+    /** "app" for the project's root, "app/src/main" for a folder in it, as the tree names folders. */
+    fun folderLabel(into: File, project: File): String {
+        val top = runCatching { project.canonicalFile }.getOrDefault(project)
+        val relative = runCatching { into.canonicalFile }.getOrDefault(into)
+            .relativeToOrNull(top)?.path?.replace(File.separatorChar, '/').orEmpty()
+        return if (relative.isEmpty()) project.name else "${project.name}/$relative"
+    }
+
+    /** Names for a one-line notice: the first few, and an ellipsis for the rest. */
+    fun namesText(names: List<String>, shown: Int = NAMES_SHOWN): String =
+        names.take(shown).joinToString(", ") + if (names.size > shown) ", …" else ""
+
+    /** How many names a notice or the question lists before it counts the rest. */
+    const val NAMES_SHOWN = 4
+
+    class Placed(val added: List<File>, val refused: List<String>)
+
+    /**
+     * Each staged file into [into] by its name, replacing a file there in
+     * one step, so a failure leaves the old one whole. A folder of the name
+     * is never replaced: that would delete what it holds.
+     */
+    fun place(files: List<Pair<String, File>>, into: File): Placed {
+        if (!into.isDirectory && !into.mkdirs()) return Placed(emptyList(), files.map { it.first })
+        val added = mutableListOf<File>()
+        val refused = mutableListOf<String>()
+        for ((name, staged) in files) {
+            val target = File(into, name)
+            if (target.isDirectory || runCatching { moveOver(staged, target) }.isFailure) {
+                refused += name
+            } else {
+                added += target
+            }
+        }
+        return Placed(added, refused)
+    }
+
+    /** [staged] renamed to [target], or copied beside it and renamed where a rename across can not be done. */
+    private fun moveOver(staged: File, target: File) {
+        try {
+            Files.move(staged.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: IOException) {
+            val partial = File(target.parentFile, ".${target.name}.incoming")
+            try {
+                Files.copy(staged.toPath(), partial.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } finally {
+                partial.delete()
+            }
+        }
+    }
 
     /** A file system's limit on a name, in bytes. */
     private const val MAX_NAME_BYTES = 255

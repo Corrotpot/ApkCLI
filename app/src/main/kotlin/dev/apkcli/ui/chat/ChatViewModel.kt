@@ -1,5 +1,6 @@
 package dev.apkcli.ui.chat
 
+import android.content.ContentResolver
 import android.content.Context
 import android.os.LocaleList
 import android.util.Log
@@ -40,6 +41,7 @@ import dev.apkcli.core.service.AgentService
 import dev.apkcli.core.service.BatteryExemption
 import dev.apkcli.core.store.ChangeLedger
 import dev.apkcli.core.store.ConversationStore
+import dev.apkcli.files.ProjectDocuments
 import dev.apkcli.ui.EditorBus
 import dev.apkcli.ui.chat.components.partialStringValue
 import dev.apkcli.ui.chat.components.toolTargetPartial
@@ -68,7 +70,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Chat screen state and the agent's two hooks into the UI.
@@ -194,8 +199,16 @@ class ChatViewModel(
      */
     data class Queued(val id: String, val text: String, val attachments: List<Attachment>)
 
-    /** A file staged for [acceptIncomingFile]: its name in the project, its size, and where it waits. */
-    data class IncomingFileOffer(val name: String, val bytes: Long, val staged: File)
+    /**
+     * Files staged for [acceptIncomingFile]: the [folder] of the project they
+     * go into, its root when null, and the [dir] where they wait meanwhile.
+     */
+    data class IncomingFileOffer(val files: List<StagedFile>, val folder: File?, val dir: File) {
+        val bytes: Long get() = files.sumOf { it.bytes }
+    }
+
+    /** One of them: its name in the project, its size, and its copy. */
+    data class StagedFile(val name: String, val bytes: Long, val staged: File)
 
     data class IncomingNotice(val text: UiText, val added: Boolean)
 
@@ -829,51 +842,74 @@ class ChatViewModel(
     }
 
     /**
-     * A file another app opened with this one: copied aside at once, while
-     * the sender's permission to read it lasts, and offered to the project
-     * (RootScreen asks). A newer one takes the place of one still waiting.
+     * A file another app opened with this one: offered for the project's
+     * root, or shown in the editor when it is one of this project's own
+     * files, which the system file manager hands back when it shows the
+     * project (ProjectDocuments).
      */
     fun receiveFile(file: IncomingFile) {
+        val workspace = _state.value.workspace
+        val own = ProjectDocuments.fileOf(appContext, file.uri)
+        if (own != null && own.isFile && workspace != null && IncomingFiles.isInside(own, workspace)) {
+            EditorBus.requestOpen(own.absolutePath)
+            return
+        }
+        receiveFiles(listOf(file.uri), folder = null)
+    }
+
+    /**
+     * Files to add to the project, opened from another app or picked from
+     * the device's storage: copied aside at once, while the permission to
+     * read them lasts, and offered for [folder] in the project, its root when
+     * null (RootScreen asks). A newer offer takes the place of one waiting.
+     */
+    fun receiveFiles(uris: List<android.net.Uri>, folder: File?) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
-            val offer = withContext(Dispatchers.IO) {
-                runCatching { stageIncoming(file.uri) }
-                    .onFailure { Log.w(TAG, "could not read opened ${file.uri}", it) }
-                    .getOrNull()
+            val staged = withContext(Dispatchers.IO) { stageIncoming(uris.distinct(), folder) }
+            if (staged.unreadable.isNotEmpty()) {
+                val names = IncomingFiles.namesText(staged.unreadable)
+                _state.update { it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_unreadable, names), added = false)) }
             }
-            if (offer == null) {
-                _state.update { it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_unreadable), added = false)) }
-                return@launch
-            }
+            val offer = staged.offer ?: return@launch
             val previous = _state.value.incomingFile
             _state.update { it.copy(incomingFile = offer) }
             previous?.let { withContext(Dispatchers.IO) { discardStaged(it) } }
         }
     }
 
-    /** The waiting file into the open project's root, in place of one of its name, then in the editor. */
+    /**
+     * The waiting files into their folder, each in place of a file of its
+     * name there; a single text file then opens in the editor.
+     */
     fun acceptIncomingFile() {
         val offer = _state.value.incomingFile ?: return
         val workspace = _state.value.workspace ?: return
         _state.update { it.copy(incomingFile = null) }
         viewModelScope.launch {
-            val target = File(workspace, offer.name)
-            val added = withContext(Dispatchers.IO) {
-                val copied = runCatching { offer.staged.copyTo(target, overwrite = true) }
-                    .onFailure { Log.w(TAG, "could not add ${offer.name}", it) }
-                    .isSuccess
-                discardStaged(offer)
-                copied
+            val into = IncomingFiles.intoFolder(offer.folder, workspace)
+            val placed = withContext(Dispatchers.IO) {
+                IncomingFiles.place(offer.files.map { it.name to it.staged }, into).also { discardStaged(offer) }
             }
-            if (!added) {
-                _state.update { it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_failed, offer.name), added = false)) }
-                return@launch
+            if (placed.added.isNotEmpty()) {
+                // An open tab of one of the names reloads, or asks when it has unsaved edits.
+                EditorBus.onFilesChangedOnDisk(placed.added.map { it.absolutePath })
+                placed.added.singleOrNull()?.let { added ->
+                    if (withContext(Dispatchers.IO) { looksLikeText(added) }) EditorBus.requestOpen(added.absolutePath)
+                }
             }
-            // An open tab of that name reloads, or asks when it has unsaved edits.
-            EditorBus.onFilesChangedOnDisk(listOf(target.absolutePath))
-            if (withContext(Dispatchers.IO) { looksLikeText(target) }) EditorBus.requestOpen(target.absolutePath)
-            _state.update {
-                it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_added, offer.name, workspace.name), added = true))
+            val where = IncomingFiles.folderLabel(into, workspace)
+            val notice = when {
+                placed.refused.isNotEmpty() ->
+                    IncomingNotice(UiText.res(R.string.incoming_failed, IncomingFiles.namesText(placed.refused)), added = false)
+                placed.added.size == 1 ->
+                    IncomingNotice(UiText.res(R.string.incoming_added, placed.added[0].name, where), added = true)
+                else -> IncomingNotice(
+                    UiText.res(R.string.incoming_added_many, IncomingFiles.namesText(placed.added.map { it.name }), where),
+                    added = true,
+                )
             }
+            _state.update { it.copy(incomingNotice = notice) }
         }
     }
 
@@ -885,25 +921,54 @@ class ChatViewModel(
 
     fun consumeIncomingNotice() = _state.update { it.copy(incomingNotice = null) }
 
-    /** [uri] copied under `var/incoming`, by the name it is to have in the project; null when it has none. */
-    private fun stageIncoming(uri: android.net.Uri): IncomingFileOffer? {
+    /** What staging made of a pick: the offer, null when nothing could be read, and the names that could not. */
+    private class Staged(val offer: IncomingFileOffer?, val unreadable: List<String>)
+
+    /** This process's staging folders under `var/incoming` start with this; any other is left over. */
+    private val incomingPrefix = UUID.randomUUID().toString().take(8) + "-"
+    private val incomingSerial = AtomicInteger()
+
+    /** [uris] copied into one folder under `var/incoming`, each by the name it is to have in the project. */
+    private fun stageIncoming(uris: List<android.net.Uri>, folder: File?): Staged {
         val resolver = appContext.contentResolver
-        val shown = ImageAttachments.displayName(resolver, uri) ?: uri.lastPathSegment ?: return null
-        val name = IncomingFiles.targetName(shown) ?: return null
-        // What an earlier process left there when it ended with a question open.
         val incoming = File(runtime.layout.state, "incoming")
-        val waiting = _state.value.incomingFile?.staged?.parentFile
-        incoming.listFiles()?.filter { it != waiting }?.forEach { it.deleteRecursively() }
-        val dir = File(incoming, System.nanoTime().toString())
-        if (!dir.mkdirs()) return null
+        // Left by an earlier process, which ended with a question open.
+        incoming.listFiles()?.filterNot { it.name.startsWith(incomingPrefix) }?.forEach { it.deleteRecursively() }
+        val dir = File(incoming, incomingPrefix + incomingSerial.incrementAndGet())
+        val files = mutableListOf<StagedFile>()
+        val unreadable = mutableListOf<String>()
+        val taken = HashSet<String>()
+        for (uri in uris) {
+            val shown = ImageAttachments.displayName(resolver, uri) ?: uri.lastPathSegment ?: uri.toString()
+            val staged = IncomingFiles.targetName(shown)?.let { IncomingFiles.unique(it, taken) }?.let { name ->
+                runCatching { copyIn(resolver, uri, dir, name) }
+                    .onFailure { Log.w(TAG, "could not read $uri", it) }
+                    .getOrNull()
+            }
+            if (staged == null) {
+                unreadable += shown.substringAfterLast('/')
+            } else {
+                taken += staged.name
+                files += staged
+            }
+        }
+        if (files.isEmpty()) {
+            dir.deleteRecursively()
+            return Staged(null, unreadable)
+        }
+        return Staged(IncomingFileOffer(files, folder, dir), unreadable)
+    }
+
+    private fun copyIn(resolver: ContentResolver, uri: android.net.Uri, dir: File, name: String): StagedFile {
+        if (!dir.isDirectory && !dir.mkdirs()) throw IOException("could not make $dir")
         val staged = File(dir, name)
-        val input = resolver.openInputStream(uri) ?: return null
+        val input = resolver.openInputStream(uri) ?: throw IOException("no stream for $uri")
         input.use { source -> staged.outputStream().use { source.copyTo(it) } }
-        return IncomingFileOffer(name, staged.length(), staged)
+        return StagedFile(name, staged.length(), staged)
     }
 
     private fun discardStaged(offer: IncomingFileOffer) {
-        offer.staged.parentFile?.deleteRecursively()
+        offer.dir.deleteRecursively()
     }
 
     /** Whether the editor would open [file]: no NUL where git looks for one. */

@@ -250,6 +250,20 @@ class ProjectDocuments : DocumentsProvider() {
 
         fun authority(context: Context): String = "${context.packageName}.documents"
 
+        /**
+         * The file one of this provider's document URIs names, for a URI the
+         * system file manager hands back to the app; null for any other URI
+         * and for one that leads outside the projects directory.
+         */
+        fun fileOf(context: Context, uri: android.net.Uri): File? {
+            if (uri.authority != authority(context)) return null
+            val id = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: return null
+            val top = runCatching { EnvLayout(context).projects.canonicalFile }.getOrNull() ?: return null
+            val relative = id.removePrefix(ROOT_ID).trimStart(File.separatorChar, '/')
+            val file = runCatching { File(top, relative).canonicalFile }.getOrNull() ?: return null
+            return file.takeIf { it == top || it.path.startsWith(top.path + File.separator) }
+        }
+
         /** What a file is, for an app that may be asked to open it. */
         fun mimeTypeOf(file: File): String {
             if (file.isDirectory) return Document.MIME_TYPE_DIR

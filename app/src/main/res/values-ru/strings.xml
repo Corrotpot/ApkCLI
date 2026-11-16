@@ -92,14 +92,20 @@
     <!-- Поделились из другого приложения. %1$s: файлы, например report.pdf, video.mp4; %2$s: размер, например 100 КБ -->
     <string name="share_not_added">Не добавлено: %1$s. В сообщение можно добавить изображения и текстовые файлы до %2$s.</string>
     <string name="incoming_title">Добавить файл в проект?</string>
-    <string name="incoming_body">%1$s (%2$s) будет скопирован в корень проекта «%3$s».</string>
-    <string name="incoming_replaces">%1$s в проекте уже есть, он будет заменён.</string>
+    <string name="incoming_into_root">В корень проекта «%1$s».</string>
+    <string name="incoming_replaces">%1$s там уже есть и будет заменён.</string>
     <string name="incoming_instructions">Агент читает его в каждом запросе.</string>
+    <string name="incoming_title_many">Добавить файлы в проект?</string>
+    <string name="incoming_into_folder">В папку %1$s.</string>
+    <string name="incoming_more">и ещё %1$d</string>
+    <string name="incoming_replaces_many">Там уже есть и будут заменены: %1$s.</string>
+    <string name="incoming_added_many">Добавлено в «%2$s»: %1$s.</string>
+    <string name="explorer_add_from_device">Добавить с устройства</string>
     <string name="incoming_add">Добавить</string>
     <string name="incoming_replace">Заменить</string>
     <string name="incoming_open_project">Откройте проект, чтобы добавить в него файл.</string>
-    <string name="incoming_added">%1$s добавлен в проект «%2$s».</string>
-    <string name="incoming_unreadable">Не удалось прочитать открытый файл.</string>
+    <string name="incoming_added">%1$s добавлен в «%2$s».</string>
+    <string name="incoming_unreadable">Не удалось прочитать: %1$s.</string>
     <string name="incoming_failed">Не удалось добавить %1$s в проект.</string>
     <string name="share_open_project">Откройте проект: то, чем вы поделились, будет в его поле ввода.</string>
     <string name="chat_image">Изображение</string>

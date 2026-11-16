@@ -1546,14 +1546,22 @@ started with again, so only a fresh start takes the share in it.
 
 A file opened with the app (`ACTION_VIEW`, as a messenger opens an
 attachment) goes into the project instead (`IncomingFile`,
-`ChatViewModel.receiveFile`). It is copied under `var/incoming` at once,
-while the sender's permission holds, and a sheet asks whether to add it to
-the open project's root, saying when it replaces a file of its name there.
-An instruction file keeps the name agents look for, whatever its case or
-copy number: `agents (1).md` becomes `AGENTS.md`. Added, a text file opens
-in the editor. With no project open, the question waits for the project
-opened next. The app is offered for `text/*` and the `application/` types
-code is kept in (JSON, XML, JavaScript, shell, YAML, TOML).
+`ChatViewModel.receiveFile`), and so do files picked in the Files tab with
+"Add from device": the system picker, any folder and any type, several at
+once, for the folder the action was asked from (`receiveFiles`). They are
+copied under `var/incoming` at once, while the permission to read them holds,
+and a sheet asks whether to add them, naming the folder and the files that
+would replace ones of the same name there. Added, each is renamed into place
+(`IncomingFiles.place`), so a failure leaves the old file whole, and a folder
+of the name is never replaced. An instruction file keeps the name agents look
+for, whatever its case or copy number: `agents (1).md` becomes `AGENTS.md`.
+A single text file opens in the editor. With no project open, the question
+waits for the project opened next. A file of the open project itself, which
+the system file manager hands back when it shows the project, opens in the
+editor rather than being offered. The app is offered for `text/*`, the
+`application/` types code is kept in (JSON, XML, JavaScript, shell, YAML,
+TOML) and `application/octet-stream`, which is what a source file whose
+extension the system does not know is sent as.
 
 The editor (`ProjectCodeEditor`, sora's CodeEditor) keeps every gesture that
 starts on it, and its edges do not stretch. Asked to let a parent scroll

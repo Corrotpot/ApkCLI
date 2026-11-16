@@ -304,6 +304,7 @@ fun RootScreen(
                                 explorer = explorerViewModel,
                                 editor = editorViewModel,
                                 changes = chatState.changes,
+                                onAddFromDevice = chatViewModel::receiveFiles,
                             )
                         },
                         terminal = {
