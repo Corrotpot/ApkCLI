@@ -1544,6 +1544,26 @@ would be opened with the app's own rights, conversation database included.
 An Activity recreated or reopened from Recents is handed the intent it was
 started with again, so only a fresh start takes the share in it.
 
+A file opened with the app (`ACTION_VIEW`, as a messenger opens an
+attachment) goes into the project instead (`IncomingFile`,
+`ChatViewModel.receiveFile`). It is copied under `var/incoming` at once,
+while the sender's permission holds, and a sheet asks whether to add it to
+the open project's root, saying when it replaces a file of its name there.
+An instruction file keeps the name agents look for, whatever its case or
+copy number: `agents (1).md` becomes `AGENTS.md`. Added, a text file opens
+in the editor. With no project open, the question waits for the project
+opened next. The app is offered for `text/*` and the `application/` types
+code is kept in (JSON, XML, JavaScript, shell, YAML, TOML).
+
+The editor (`ProjectCodeEditor`, sora's CodeEditor) keeps every gesture that
+starts on it, and its edges do not stretch. Asked to let a parent scroll
+sideways, sora gave the gesture back whenever the finger drifted sideways at
+a horizontal edge; and while an edge effect is unfinished it turns a drag
+into stretching the edge, releasing the effect on `ACTION_UP` only, so after
+a gesture that ended otherwise a drag moved the text a little and stopped.
+Prose (Markdown, plain text, the instruction files) wraps its lines by
+default and code does not; the status line's switch sets each kind.
+
 ## Shell lines in the composer
 
 Words that start with `!` are a line for the project's shell, as in OpenCode
@@ -1696,6 +1716,10 @@ whole; the agent loop; the terminals; the UI; subagents):
 * **The preview tools have not run on a device.** What they tell the model
   is unit-tested (`PreviewReportTest`); the WebView side (waiting for a load,
   the console, the drawn picture, the script wrapper) is compiled only.
+* **The editor's scrolling and Open with have not run on a device either.**
+  The cause of the stuck scrolling was found by reading sora's touch code, not
+  reproduced; the names an opened file gets and which files wrap are
+  unit-tested (`IncomingFilesTest`, `WordWrapTest`).
 * **Checked at one width.** The history sheet, find in the chat and the top
   bar have run on a 411 dp emulator screen; 360 dp, where the top bar moves
   its icons into the menu, has not been looked at in the app.

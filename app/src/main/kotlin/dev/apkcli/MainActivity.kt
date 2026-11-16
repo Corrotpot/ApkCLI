@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import dev.apkcli.core.service.AgentService
+import dev.apkcli.ui.chat.IncomingFile
 import dev.apkcli.ui.chat.IncomingShare
 import dev.apkcli.ui.locale.AppLocales
 import dev.apkcli.ui.root.RootScreen
@@ -56,6 +57,9 @@ class MainActivity : ComponentActivity() {
      */
     private var share by mutableStateOf<IncomingShare?>(null)
 
+    /** A file another app opened with this one, until the screens take it, as [share]. */
+    private var opened by mutableStateOf<IncomingFile?>(null)
+
     /** In-app language on Android 12 and older; see [AppLocales]. */
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocales.wrap(newBase))
@@ -70,7 +74,10 @@ class MainActivity : ComponentActivity() {
         // Only a fresh start takes the share it was started with: recreated,
         // or reopened from Recents, the Activity gets that intent again.
         val fromRecents = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-        if (savedInstanceState == null && !fromRecents) share = IncomingShare.from(intent)
+        if (savedInstanceState == null && !fromRecents) {
+            share = IncomingShare.from(intent)
+            opened = IncomingFile.from(intent)
+        }
 
         askForNotificationPermission()
 
@@ -80,16 +87,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    RootScreen(share = share, onShareTaken = { share = null })
+                    RootScreen(
+                        share = share,
+                        onShareTaken = { share = null },
+                        opened = opened,
+                        onOpenedTaken = { opened = null },
+                    )
                 }
             }
         }
     }
 
-    /** singleTask: a share while the app is running lands here, not in a second copy. */
+    /** singleTask: a share or a file opened while the app is running lands here, not in a second copy. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         IncomingShare.from(intent)?.let { share = it }
+        IncomingFile.from(intent)?.let { opened = it }
     }
 
     override fun onStart() {

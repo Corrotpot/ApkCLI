@@ -91,6 +91,16 @@
     <string name="chat_attach_model_may_not_see">Модель не заявляет поддержку изображений — может их не увидеть или вернуть ошибку.</string>
     <!-- Поделились из другого приложения. %1$s: файлы, например report.pdf, video.mp4; %2$s: размер, например 100 КБ -->
     <string name="share_not_added">Не добавлено: %1$s. В сообщение можно добавить изображения и текстовые файлы до %2$s.</string>
+    <string name="incoming_title">Добавить файл в проект?</string>
+    <string name="incoming_body">%1$s (%2$s) будет скопирован в корень проекта «%3$s».</string>
+    <string name="incoming_replaces">%1$s в проекте уже есть, он будет заменён.</string>
+    <string name="incoming_instructions">Агент читает его в каждом запросе.</string>
+    <string name="incoming_add">Добавить</string>
+    <string name="incoming_replace">Заменить</string>
+    <string name="incoming_open_project">Откройте проект, чтобы добавить в него файл.</string>
+    <string name="incoming_added">%1$s добавлен в проект «%2$s».</string>
+    <string name="incoming_unreadable">Не удалось прочитать открытый файл.</string>
+    <string name="incoming_failed">Не удалось добавить %1$s в проект.</string>
     <string name="share_open_project">Откройте проект: то, чем вы поделились, будет в его поле ввода.</string>
     <string name="chat_image">Изображение</string>
     <string name="a11y_attach_image">Прикрепить фото или скриншот</string>

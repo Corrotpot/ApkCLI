@@ -31,10 +31,12 @@ import dev.apkcli.R
 import dev.apkcli.di.ServiceLocator
 import dev.apkcli.ui.chat.ChatScreen
 import dev.apkcli.ui.chat.ChatViewModel
+import dev.apkcli.ui.chat.IncomingFile
 import dev.apkcli.ui.chat.IncomingShare
 import dev.apkcli.ui.chat.sheets.AgentSheet
 import dev.apkcli.ui.chat.sheets.ApprovalSheet
 import dev.apkcli.ui.chat.sheets.HistorySheets
+import dev.apkcli.ui.chat.sheets.IncomingFileSheet
 import dev.apkcli.ui.chat.sheets.MemorySheets
 import dev.apkcli.ui.components.Card
 import dev.apkcli.ui.components.ProvideToaster
@@ -63,6 +65,7 @@ import dev.apkcli.core.model.ApprovalRule
 import dev.apkcli.core.store.BuiltInAgents
 import dev.apkcli.ui.text.displayName
 import dev.apkcli.ui.text.inSentence
+import dev.apkcli.ui.text.resolve
 import dev.apkcli.ui.theme.Design
 import dev.apkcli.ui.workbench.Pane
 import dev.apkcli.ui.workbench.WorkbenchViewModel
@@ -84,6 +87,9 @@ import java.io.File
 fun RootScreen(
     share: IncomingShare?,
     onShareTaken: () -> Unit,
+    /** A file another app opened with this one, held like [share] until taken ([onOpenedTaken]). */
+    opened: IncomingFile?,
+    onOpenedTaken: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -179,6 +185,29 @@ fun RootScreen(
             toaster.show(shareWaits, Codicons.Info)
         }
         onShareTaken()
+    }
+
+    // Opened from another app: copied aside at once and offered to the open
+    // project (IncomingFileSheet below). With none open, the offer waits for
+    // the project opened next.
+    val openProjectFirst = stringResource(R.string.incoming_open_project)
+    LaunchedEffect(opened, chatState.starting) {
+        val incoming = opened ?: return@LaunchedEffect
+        if (chatState.starting) return@LaunchedEffect
+        chatViewModel.receiveFile(incoming)
+        if (chatState.workspace == null) {
+            navigator.navigate(Destination.Home)
+            toaster.show(openProjectFirst, Codicons.Info)
+        }
+        onOpenedTaken()
+    }
+    val incomingNotice = chatState.incomingNotice
+    val noticeText = incomingNotice?.text?.resolve()
+    LaunchedEffect(incomingNotice) {
+        if (incomingNotice != null && noticeText != null) {
+            toaster.show(noticeText, if (incomingNotice.added) Codicons.Check else Codicons.Warning)
+            chatViewModel.consumeIncomingNotice()
+        }
     }
 
     BackHandler(enabled = navigator.canGoBack) { navigator.pop() }
@@ -325,6 +354,17 @@ fun RootScreen(
         }
 
         MemorySheets(chatViewModel)
+
+        val incomingFile = chatState.incomingFile
+        val incomingProject = chatState.workspace
+        if (incomingFile != null && incomingProject != null && !chatState.starting) {
+            IncomingFileSheet(
+                offer = incomingFile,
+                project = incomingProject,
+                onAdd = chatViewModel::acceptIncomingFile,
+                onDismiss = chatViewModel::dismissIncomingFile,
+            )
+        }
 
         HistorySheets(
             viewModel = chatViewModel,

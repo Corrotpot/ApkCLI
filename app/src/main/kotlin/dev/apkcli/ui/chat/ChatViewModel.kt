@@ -194,6 +194,11 @@ class ChatViewModel(
      */
     data class Queued(val id: String, val text: String, val attachments: List<Attachment>)
 
+    /** A file staged for [acceptIncomingFile]: its name in the project, its size, and where it waits. */
+    data class IncomingFileOffer(val name: String, val bytes: Long, val staged: File)
+
+    data class IncomingNotice(val text: UiText, val added: Boolean)
+
     /** A checkpoint the user asked to restore, waiting for them to confirm. */
     data class CheckpointPrompt(
         /** The user message the checkpoint sits above. */
@@ -317,6 +322,10 @@ class ChatViewModel(
          * go after what is typed there, the way a paste does.
          */
         val sharedText: String? = null,
+        /** A file another app opened with this one, copied aside, until the user adds it to the project or not. */
+        val incomingFile: IncomingFileOffer? = null,
+        /** How adding [incomingFile] went, for a toast. */
+        val incomingNotice: IncomingNotice? = null,
         /** A `!` line running in the project's shell; the composer is [busy] meanwhile. */
         val shellRun: ShellRun? = null,
         /** Messages whose reasoning was open when they finished streaming; they land open. */
@@ -818,6 +827,93 @@ class ChatViewModel(
             }
         }
     }
+
+    /**
+     * A file another app opened with this one: copied aside at once, while
+     * the sender's permission to read it lasts, and offered to the project
+     * (RootScreen asks). A newer one takes the place of one still waiting.
+     */
+    fun receiveFile(file: IncomingFile) {
+        viewModelScope.launch {
+            val offer = withContext(Dispatchers.IO) {
+                runCatching { stageIncoming(file.uri) }
+                    .onFailure { Log.w(TAG, "could not read opened ${file.uri}", it) }
+                    .getOrNull()
+            }
+            if (offer == null) {
+                _state.update { it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_unreadable), added = false)) }
+                return@launch
+            }
+            val previous = _state.value.incomingFile
+            _state.update { it.copy(incomingFile = offer) }
+            previous?.let { withContext(Dispatchers.IO) { discardStaged(it) } }
+        }
+    }
+
+    /** The waiting file into the open project's root, in place of one of its name, then in the editor. */
+    fun acceptIncomingFile() {
+        val offer = _state.value.incomingFile ?: return
+        val workspace = _state.value.workspace ?: return
+        _state.update { it.copy(incomingFile = null) }
+        viewModelScope.launch {
+            val target = File(workspace, offer.name)
+            val added = withContext(Dispatchers.IO) {
+                val copied = runCatching { offer.staged.copyTo(target, overwrite = true) }
+                    .onFailure { Log.w(TAG, "could not add ${offer.name}", it) }
+                    .isSuccess
+                discardStaged(offer)
+                copied
+            }
+            if (!added) {
+                _state.update { it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_failed, offer.name), added = false)) }
+                return@launch
+            }
+            // An open tab of that name reloads, or asks when it has unsaved edits.
+            EditorBus.onFilesChangedOnDisk(listOf(target.absolutePath))
+            if (withContext(Dispatchers.IO) { looksLikeText(target) }) EditorBus.requestOpen(target.absolutePath)
+            _state.update {
+                it.copy(incomingNotice = IncomingNotice(UiText.res(R.string.incoming_added, offer.name, workspace.name), added = true))
+            }
+        }
+    }
+
+    fun dismissIncomingFile() {
+        val offer = _state.value.incomingFile ?: return
+        _state.update { it.copy(incomingFile = null) }
+        viewModelScope.launch(Dispatchers.IO) { discardStaged(offer) }
+    }
+
+    fun consumeIncomingNotice() = _state.update { it.copy(incomingNotice = null) }
+
+    /** [uri] copied under `var/incoming`, by the name it is to have in the project; null when it has none. */
+    private fun stageIncoming(uri: android.net.Uri): IncomingFileOffer? {
+        val resolver = appContext.contentResolver
+        val shown = ImageAttachments.displayName(resolver, uri) ?: uri.lastPathSegment ?: return null
+        val name = IncomingFiles.targetName(shown) ?: return null
+        // What an earlier process left there when it ended with a question open.
+        val incoming = File(runtime.layout.state, "incoming")
+        val waiting = _state.value.incomingFile?.staged?.parentFile
+        incoming.listFiles()?.filter { it != waiting }?.forEach { it.deleteRecursively() }
+        val dir = File(incoming, System.nanoTime().toString())
+        if (!dir.mkdirs()) return null
+        val staged = File(dir, name)
+        val input = resolver.openInputStream(uri) ?: return null
+        input.use { source -> staged.outputStream().use { source.copyTo(it) } }
+        return IncomingFileOffer(name, staged.length(), staged)
+    }
+
+    private fun discardStaged(offer: IncomingFileOffer) {
+        offer.staged.parentFile?.deleteRecursively()
+    }
+
+    /** Whether the editor would open [file]: no NUL where git looks for one. */
+    private fun looksLikeText(file: File): Boolean = runCatching {
+        file.inputStream().use { input ->
+            val head = ByteArray(8_000)
+            val read = input.read(head).coerceAtLeast(0)
+            (0 until read).none { head[it] == 0.toByte() }
+        }
+    }.getOrDefault(false)
 
     fun removeAttachment(id: String) = _state.update { current ->
         current.copy(attachments = current.attachments.filterNot { it.id == id })

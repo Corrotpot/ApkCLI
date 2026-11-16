@@ -47,6 +47,53 @@ data class IncomingShare(val text: String?, val streams: List<Uri>) {
 }
 
 /**
+ * A file another app asked this one to open (`ACTION_VIEW`): a messenger's
+ * attachment, a download. It is offered to the open project, and added to
+ * its root if the user agrees. Only `content:` URIs, as for [IncomingShare].
+ */
+data class IncomingFile(val uri: Uri) {
+
+    companion object {
+        /** Null when [intent] opens nothing this app takes. */
+        fun from(intent: Intent?): IncomingFile? {
+            if (intent?.action != Intent.ACTION_VIEW) return null
+            val uri = intent.data?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT } ?: return null
+            return IncomingFile(uri)
+        }
+    }
+}
+
+/** Where an opened file goes in the project. */
+internal object IncomingFiles {
+
+    /** The instruction files agents read, as the project root has them (ProjectInstructions.FILES). */
+    private val INSTRUCTIONS = listOf("AGENTS.md", "CLAUDE.md")
+
+    /** A download's copy number: `AGENTS (1).md`, `AGENTS-2.md`. */
+    private val COPY_NUMBER = Regex("""\s*[(\[]\d{1,3}[)\]]$|[-_ ]\d{1,3}$""")
+
+    /**
+     * The name [displayName] gets in the project's root. An instruction file
+     * keeps the name agents look for, whatever its copy number or case
+     * (`agents (1).md` is `AGENTS.md`); any other file keeps its own name,
+     * without a path. Null when nothing usable is left of it.
+     */
+    fun targetName(displayName: String): String? {
+        val name = displayName.replace('\\', '/').substringAfterLast('/').trim()
+        if (name.isEmpty() || name == "." || name == ".." || name.toByteArray().size > MAX_NAME_BYTES) return null
+        val stem = name.substringBeforeLast('.').replace(COPY_NUMBER, "")
+        val extension = name.substringAfterLast('.', "")
+        return INSTRUCTIONS.firstOrNull { "$stem.$extension".equals(it, ignoreCase = true) } ?: name
+    }
+
+    /** Whether agents read [name] on every request. */
+    fun isInstructions(name: String): Boolean = name in INSTRUCTIONS
+
+    /** A file system's limit on a name, in bytes. */
+    private const val MAX_NAME_BYTES = 255
+}
+
+/**
  * A shared file sorted for the next message: an image is attached, text is
  * pasted into the input box as a code block under the file's name, and
  * anything else is named as not added.

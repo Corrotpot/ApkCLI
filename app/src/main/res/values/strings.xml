@@ -100,6 +100,16 @@
     <string name="chat_attach_model_may_not_see">This model does not declare image support; it may not see them, or fail.</string>
     <!-- Shared from another app. %1$s: the files, e.g. report.pdf, video.mp4; %2$s: a size, e.g. 100 KB -->
     <string name="share_not_added">Not added: %1$s. A message takes images, and text files up to %2$s.</string>
+    <string name="incoming_title">Add the file to the project?</string>
+    <string name="incoming_body">%1$s (%2$s) goes into the root of %3$s.</string>
+    <string name="incoming_replaces">%1$s is already in the project and is replaced.</string>
+    <string name="incoming_instructions">The agent reads it on every request.</string>
+    <string name="incoming_add">Add</string>
+    <string name="incoming_replace">Replace</string>
+    <string name="incoming_open_project">Open a project to add the file to it.</string>
+    <string name="incoming_added">%1$s added to %2$s.</string>
+    <string name="incoming_unreadable">Could not read the opened file.</string>
+    <string name="incoming_failed">Could not add %1$s to the project.</string>
     <string name="share_open_project">Open a project: what you shared will be in its input box.</string>
     <string name="chat_image">Image</string>
     <string name="a11y_attach_image">Attach a photo or screenshot</string>

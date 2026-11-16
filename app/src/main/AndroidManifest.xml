@@ -80,11 +80,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Open a file or folder from a file manager. -->
+            <!--
+              Open a file from another app, a messenger or a file manager: it
+              is offered to the open project and copied into its root
+              (IncomingFile). Text and the formats code is kept in, so the app
+              is not offered for a photo or a video.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/*" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/xml" />
+                <data android:mimeType="application/javascript" />
+                <data android:mimeType="application/x-sh" />
+                <data android:mimeType="application/yaml" />
+                <data android:mimeType="application/x-yaml" />
+                <data android:mimeType="application/toml" />
             </intent-filter>
 
             <!--
