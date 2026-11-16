@@ -67,9 +67,20 @@ class EditorViewModel(private val env: EnvLayout) : ViewModel() {
         val jump: Jump? = null,
         /** Bumped on every edit, so undo/redo availability recomposes. */
         val editSerial: Long = 0,
-        val wordWrap: Boolean = false,
+        /** Code wraps its long lines: off by default, as in a desktop editor. */
+        val wrapCode: Boolean = false,
+        /**
+         * Prose wraps its long lines: on by default. A paragraph of Markdown
+         * is one line, which unwrapped ran off the screen to the right.
+         */
+        val wrapProse: Boolean = true,
     ) {
         val activeTab: Tab? get() = tabs.firstOrNull { it.path == active }
+
+        /** Whether the file shown wraps its lines, as its kind is set to. */
+        val wordWrap: Boolean get() = if (activeIsProse) wrapProse else wrapCode
+
+        internal val activeIsProse: Boolean get() = active?.let { isProse(File(it).name) } == true
     }
 
     private val buffers = LinkedHashMap<String, Buffer>()
@@ -190,7 +201,10 @@ class EditorViewModel(private val env: EnvLayout) : ViewModel() {
         _state.update { it.copy(tabs = tabs(), editSerial = it.editSerial + 1) }
     }
 
-    fun toggleWordWrap() = _state.update { it.copy(wordWrap = !it.wordWrap) }
+    /** Wrap, or stop wrapping, every file of the shown file's kind: prose or code. */
+    fun toggleWordWrap() = _state.update {
+        if (it.activeIsProse) it.copy(wrapProse = !it.wrapProse) else it.copy(wrapCode = !it.wrapCode)
+    }
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
 

@@ -230,7 +230,7 @@ private fun CodeEditorView(
             // The design's code font, the same JetBrains Mono the chat uses.
             val mono = runCatching { ResourcesCompat.getFont(context, R.font.jetbrains_mono) }.getOrNull()
                 ?: Typeface.MONOSPACE
-            CodeEditor(context).apply {
+            ProjectCodeEditor(context).apply {
                 val density = context.resources.displayMetrics.density
                 setTypefaceText(mono)
                 setTypefaceLineNumber(mono)
@@ -251,9 +251,6 @@ private fun CodeEditorView(
                 setHighlightCurrentLine(true)
                 setTabWidth(4)
                 setCursorAnimationEnabled(false)
-                // Lets a horizontal swipe on a short line reach the split
-                // divider and the pane around it instead of being eaten.
-                setInterceptParentHorizontalScrollIfNeeded(true)
                 setText("")
                 isEditable = false
                 subscribeAlways(ContentChangeEvent::class.java) { _ ->
@@ -538,6 +535,18 @@ private fun StatusLine(
         )
     }
 }
+
+/** Prose rather than code: Markdown, plain text, and the instruction files agents read. */
+internal fun isProse(fileName: String): Boolean {
+    val lower = fileName.lowercase()
+    val extension = lower.substringAfterLast('.', "")
+    return extension in PROSE_EXTENSIONS || (extension.isEmpty() && lower in PROSE_NAMES)
+}
+
+private val PROSE_EXTENSIONS = setOf("md", "markdown", "mdx", "txt", "text", "rst", "adoc", "asciidoc", "org", "cursorrules")
+
+/** Files a project names without an extension that are prose. */
+private val PROSE_NAMES = setOf("readme", "license", "licence", "changelog", "notice", "authors", "contributing", "copying")
 
 /** The language as the status line names it; "text" when there is no highlighting for it. */
 internal fun languageName(fileName: String): String {
