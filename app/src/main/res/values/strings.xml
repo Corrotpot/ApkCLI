@@ -753,6 +753,11 @@
     <string name="settings_background_battery_off">On: Android may put the app to sleep in the background and stop the agent. Tap to turn it off for ApkCLI.</string>
     <string name="settings_background_app">App settings</string>
     <string name="settings_background_app_sub">Some phones limit background apps on their own (Xiaomi, Samsung, Huawei and others): allow ApkCLI to run without restrictions there.</string>
+    <string name="settings_exit">Exit the app</string>
+    <string name="settings_exit_sub">Stops the agent and everything running in the terminals, removes the notification and closes ApkCLI. Exit in the notification does the same.</string>
+    <string name="settings_exit_title">Exit ApkCLI?</string>
+    <string name="settings_exit_body">The agent stops where it is, and what runs in the terminals is closed. Chats and files stay.</string>
+    <string name="settings_exit_confirm">Exit</string>
     <string name="settings_background_note">While the agent or a terminal is working, the app shows a notification and keeps the processor awake, and on Android 13 and older keeps Wi-Fi out of power saving. Android 12 and newer kills child processes once there are more than 32 of them; if builds die with signal 9, on Android 14 and newer turn on Developer options → Disable child process restrictions.</string>
     <string name="settings_connections">Connections</string>
     <string name="settings_endpoint_failed">error</string>

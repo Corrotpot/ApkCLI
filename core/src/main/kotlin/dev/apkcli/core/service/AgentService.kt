@@ -1,5 +1,6 @@
 package dev.apkcli.core.service
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +12,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.Process
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dev.apkcli.core.AgentRuntime
@@ -49,7 +51,7 @@ import kotlinx.coroutines.launch
  * It is not a bound service with an API. The UI talks to [AgentRuntime]
  * directly — same process — and the service exists to hold the process's
  * priority and its locks, and to let the user see and stop a turn from the
- * notification shade.
+ * notification shade, or end the app ([exit]).
  */
 class AgentService : Service() {
 
@@ -80,6 +82,11 @@ class AgentService : Service() {
                 Log.i(TAG, "stop requested from the notification")
                 // Started by the button alone, with nothing held: not left running.
                 if (snapshot() == null) stopSelfResult(startId)
+            }
+
+            ACTION_EXIT -> {
+                Log.i(TAG, "exit requested from the notification")
+                exit(this)
             }
         }
         // Not sticky: a turn that was interrupted by a process death must not be
@@ -220,6 +227,15 @@ class AgentService : Service() {
             )
             builder.addAction(0, "Stop", stop)
         }
+        // Always: what holds the service may be a dev server in a terminal,
+        // which nothing else here stops.
+        val exit = PendingIntent.getService(
+            this,
+            3,
+            Intent(this, AgentService::class.java).setAction(ACTION_EXIT),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        builder.addAction(0, "Exit", exit)
         return builder.build()
     }
 
@@ -243,6 +259,10 @@ class AgentService : Service() {
 
         private const val ACTION_SYNC = "dev.apkcli.agent.SYNC"
         const val ACTION_STOP_TURN = "dev.apkcli.agent.STOP_TURN"
+        private const val ACTION_EXIT = "dev.apkcli.agent.EXIT"
+
+        /** How long [exit] waits for the terminals to close before the process ends regardless. */
+        private const val EXIT_GRACE_MS = 2_000L
 
         /** Held by a running turn, or by /compact. */
         const val HOLD_TURN = "turn"
@@ -266,6 +286,8 @@ class AgentService : Service() {
          * Again with the same key changes the words.
          */
         fun hold(context: Context, key: String, label: String) {
+            // Exiting: what is still running would start the service again.
+            if (exiting) return
             val first = synchronized(holds) {
                 val idle = holds.isEmpty()
                 holds[key] = label
@@ -299,6 +321,50 @@ class AgentService : Service() {
 
         /** The turn ended. */
         fun finish(context: Context) = release(context, HOLD_TURN)
+
+        /**
+         * Closes what runs in the terminals before the process ends ([exit]);
+         * set by the app. The programs would die with the process anyway:
+         * closed first, each gets its hangup and can clean up after itself.
+         */
+        @Volatile
+        var beforeExit: (() -> Unit)? = null
+
+        @Volatile
+        private var exiting = false
+
+        /**
+         * Exit, from the notification or Settings › Background: nothing holds
+         * the service any more, so it stops and its notification goes; the
+         * terminals are closed ([beforeExit]); the app's screens are closed and
+         * taken out of the recents; and the process ends, with the turn that
+         * was running. A reply is saved as it streams, so the chat shows where
+         * it stopped.
+         *
+         * Nothing let the user end the app while it worked: the service runs
+         * while anything runs in a terminal (a dev server, a watcher), and its
+         * notification had Stop only for a turn.
+         */
+        fun exit(context: Context) {
+            if (exiting) return
+            exiting = true
+            synchronized(holds) { holds.clear() }
+            val app = context.applicationContext
+            runCatching { app.stopService(Intent(app, AgentService::class.java)) }
+            Thread({
+                val closing = Thread({ runCatching { beforeExit?.invoke() } }, "apkcli-exit-terminals")
+                closing.isDaemon = true
+                closing.start()
+                // A program that ignores its hangup does not keep the app up:
+                // it goes with the process.
+                closing.join(EXIT_GRACE_MS)
+                app.getSystemService(ActivityManager::class.java)?.appTasks?.forEach { task ->
+                    runCatching { task.finishAndRemoveTask() }
+                }
+                Log.i(TAG, "exiting")
+                Process.killProcess(Process.myPid())
+            }, "apkcli-exit").apply { isDaemon = true }.start()
+        }
 
         private val _stopRequested = MutableStateFlow(false)
 

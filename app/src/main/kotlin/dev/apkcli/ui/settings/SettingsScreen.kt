@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.apkcli.R
 import dev.apkcli.core.llm.ConnectionScheme
+import dev.apkcli.core.service.AgentService
 import dev.apkcli.core.service.BatteryExemption
 import dev.apkcli.core.model.ApprovalRule
 import dev.apkcli.core.model.Endpoint
@@ -83,6 +84,9 @@ private sealed interface SettingsSheet {
     data object Agent : SettingsSheet
     data object Reasoning : SettingsSheet
     data object Model : SettingsSheet
+
+    /** Settings › Background › Exit: everything stops and the app closes. */
+    data object ConfirmExit : SettingsSheet
 }
 
 /**
@@ -236,7 +240,7 @@ fun SettingsScreen(
             Note(stringResource(if (rulesActive) R.string.rules_note_active else R.string.rules_note_inactive))
 
             Section(stringResource(R.string.settings_background))
-            Card { BackgroundSettings() }
+            Card { BackgroundSettings(onExit = { sheet = SettingsSheet.ConfirmExit }) }
             Note(stringResource(R.string.settings_background_note))
 
             Section(stringResource(R.string.settings_interface))
@@ -315,6 +319,16 @@ fun SettingsScreen(
             )
         }
 
+        SettingsSheet.ConfirmExit -> ConfirmSheet(
+            title = stringResource(R.string.settings_exit_title),
+            body = stringResource(R.string.settings_exit_body),
+            confirm = stringResource(R.string.settings_exit_confirm),
+            dismiss = stringResource(R.string.common_cancel),
+            onConfirm = { AgentService.exit(context) },
+            onDismiss = close,
+            icon = Codicons.Close,
+        )
+
         SettingsSheet.Agent -> AgentSheet(
             agents = settings.agents,
             activeId = settings.activeAgent?.id,
@@ -379,7 +393,7 @@ fun SettingsScreen(
  * system's dialog or its settings, outside the app.
  */
 @Composable
-private fun BackgroundSettings() {
+private fun BackgroundSettings(onExit: () -> Unit) {
     val context = LocalContext.current
     var exempt by remember { mutableStateOf(BatteryExemption.granted(context)) }
     LifecycleResumeEffect(Unit) {
@@ -404,6 +418,15 @@ private fun BackgroundSettings() {
         subtitleMaxLines = 3,
         lead = { Tile(Codicons.SettingsGear) },
         onClick = { BatteryExemption.openAppSettings(context) },
+    )
+    CardDivider()
+    // AgentService.exit, as Exit in the notification.
+    ListRow(
+        title = stringResource(R.string.settings_exit),
+        subtitle = stringResource(R.string.settings_exit_sub),
+        subtitleMaxLines = 3,
+        lead = { Tile(Codicons.Close, tone = TileTone.Error) },
+        onClick = onExit,
     )
 }
 

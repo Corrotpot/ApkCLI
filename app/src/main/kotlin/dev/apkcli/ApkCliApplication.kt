@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import dev.apkcli.core.AgentRuntime
+import dev.apkcli.core.service.AgentService
 import dev.apkcli.files.TerminalActions
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +61,8 @@ class ApkCliApplication : Application() {
         runtime = AgentRuntime(this, appScope)
         // `open`, `share`, `notify` and `clip` in the user's shells.
         runtime.onTerminalRequest = TerminalActions(this, runtime.layout, appScope)::handle
+        // Exit, from the notification or Settings, closes the terminals first.
+        AgentService.beforeExit = runtime::closeTerminals
 
         appScope.launch {
             val report = runtime.start()

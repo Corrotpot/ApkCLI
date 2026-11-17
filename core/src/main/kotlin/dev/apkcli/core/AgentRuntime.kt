@@ -326,14 +326,21 @@ class AgentRuntime(
     }
 
     fun shutdown() {
-        // Touching the lazy properties here would load the native library just
-        // to tear it down, so only release what was actually started.
-        if (NativeCore.available) {
-            runCatching { terminals?.closeAll() }
-            runCatching { ptyManager?.closeAll() }
-        }
+        closeTerminals()
         governor.shutdown()
         store.close()
+    }
+
+    /**
+     * Every terminal closed, and what ran in it hung up: on [shutdown], and
+     * before the app exits ([AgentService.exit]).
+     */
+    fun closeTerminals() {
+        // Touching the lazy properties here would load the native library just
+        // to tear it down, so only release what was actually started.
+        if (!NativeCore.available) return
+        runCatching { terminals?.closeAll() }
+        runCatching { ptyManager?.closeAll() }
     }
 
     /* ----------------------------------------------------------- execution */

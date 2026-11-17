@@ -131,6 +131,12 @@ an edge case.
 command a chat's transcript runs, a program in the foreground of a user's
 shell, which is asked every three seconds; a shell at its prompt does not
 count). The notification says what holds it and has Stop while a turn does.
+It always has Exit, as Settings › Background has (`AgentService.exit`): nothing
+holds the service any more, the terminals are closed and get their hangup, the
+app's screens are closed and taken out of the recents, and the process ends,
+with the turn that was running; a reply is saved as it streams. A dev server
+left running in a terminal used to keep the service and its notification up,
+with nothing in the shade to stop it.
 Every change sends one intent, and the service reads the current holds rather
 than the intent's, so changes from several threads cannot overtake each other.
 While it runs it keeps:
