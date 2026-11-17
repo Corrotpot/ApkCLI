@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -165,6 +166,7 @@ fun ToolCallCard(
         else -> stringResource(R.string.a11y_tool_succeeded, title, statusText)
     }
     val subtitle = target ?: call.partialTarget ?: summaryText(call.display)
+    val command = remember(call.name, call.argumentsJson) { toolCommand(call.name, call.argumentsJson) }
 
     // Find in the chat: the target, the output and the diff are searched
     // (ChatScreen lists them under these keys), and a collapsed card that
@@ -176,6 +178,11 @@ fun ToolCallCard(
     val findItem = LocalFindItem.current
     val findOpens = marks != null && (marks.opens(findItem, findBody) || marks.opens(findItem, findDiff))
     val open = expanded || findOpens
+    // The whole command in the header, where it shows the first line: with
+    // Settings › Show commands in full, or opened, running or not, unless
+    // the open card's output already starts with it (CommandView).
+    val bodyShowsCommand = open && !running && call.display is ToolDisplay.Command
+    val wholeCommand = command?.takeIf { !bodyShowsCommand && (open || LocalFullCommands.current) }
 
     // `.tool`: surface 1, a quiet border that turns red-tinted when the call
     // failed and strong while it runs; `.tool-head` 48 dp.
@@ -226,17 +233,21 @@ fun ToolCallCard(
                         DiffStat(diff.addedLines, diff.removedLines)
                     }
                 }
-                subtitle?.let { summary ->
-                    val findable = rememberFindable(findTarget, summary)
-                    Text(
-                        text = findable.text,
-                        style = Design.Type.MonoCaption,
-                        color = Design.Colors.TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        onTextLayout = findable.onTextLayout,
-                        modifier = findable.modifier,
-                    )
+                if (wholeCommand != null) {
+                    WholeCommand(wholeCommand, findTarget)
+                } else {
+                    subtitle?.let { summary ->
+                        val findable = rememberFindable(findTarget, summary)
+                        Text(
+                            text = findable.text,
+                            style = Design.Type.MonoCaption,
+                            color = Design.Colors.TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            onTextLayout = findable.onTextLayout,
+                            modifier = findable.modifier,
+                        )
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -593,6 +604,39 @@ private fun SearchResultsView(display: ToolDisplay.SearchResults) {
 
 /** How tall the live terminal under a running call may grow. */
 private val LIVE_HEIGHT = 220.dp
+
+/**
+ * Command cards show the whole command, not its first line: Settings › Show
+ * commands in full ([dev.apkcli.core.model.AppSettings.showFullCommands]).
+ */
+val LocalFullCommands = staticCompositionLocalOf { false }
+
+/** How tall a whole command in a card's header may grow before it scrolls. */
+private val WHOLE_COMMAND_HEIGHT = 240.dp
+
+/**
+ * `$ command` with every line, wrapped, in the header in place of its first
+ * line; it scrolls past [WHOLE_COMMAND_HEIGHT], and a heredoc with a whole
+ * file in it is drawn in part ([monoShown]). Find in the chat searches the
+ * first line ([toolTarget]), which this starts with, so its matches are
+ * marked where they are.
+ */
+@Composable
+private fun WholeCommand(command: String, findSegment: String) {
+    val pattern = stringResource(R.string.tool_output_clipped)
+    val locale = LocalConfiguration.current.locales[0]
+    val shown = remember(command, pattern, locale) { monoShown("$ $command", pattern, locale) }
+    val findable = rememberFindable(findSegment, shown)
+    Box(Modifier.heightIn(max = WHOLE_COMMAND_HEIGHT).verticalScroll(rememberScrollState())) {
+        Text(
+            text = findable.text,
+            style = Design.Type.MonoCaption,
+            color = Design.Colors.TextSecondary,
+            onTextLayout = findable.onTextLayout,
+            modifier = findable.modifier,
+        )
+    }
+}
 
 /**
  * The last lines a running call's terminal shows, as the terminal shows

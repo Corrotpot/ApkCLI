@@ -349,6 +349,9 @@ class SettingsRepository(
 
     suspend fun setThinkingMode(mode: ThinkingMode) = update { it.copy(thinkingMode = mode) }
 
+    /** Settings › Interface: command cards show the whole command. */
+    suspend fun setShowFullCommands(on: Boolean) = update { it.copy(showFullCommands = on) }
+
     /**
      * Remember [level] for one model; null forgets the pick, so the model's
      * own default applies again. Only levels the model published reach here.

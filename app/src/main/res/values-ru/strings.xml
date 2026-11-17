@@ -481,6 +481,8 @@
 
     <!-- Настройки -->
     <string name="settings_interface">Интерфейс</string>
+    <string name="settings_full_commands">Команды целиком</string>
+    <string name="settings_full_commands_sub">Карточка команды показывает всю команду, и пока она идёт, а не только первую строку. Без галочки команда видна целиком, если нажать на карточку.</string>
     <string name="settings_language">Язык</string>
     <string name="settings_language_system">Системный</string>
     <string name="settings_split_help">«Авто» разделяет экран на планшетах, складных телефонах и в альбомной ориентации.</string>

@@ -333,6 +333,11 @@ class SettingsViewModel(
         viewModelScope.launch { runtime.settingsRepository.setApprovalRule(rule, allowed) }
     }
 
+    /** Settings › Interface: command cards show the whole command. */
+    fun setShowFullCommands(on: Boolean) {
+        viewModelScope.launch { runtime.settingsRepository.setShowFullCommands(on) }
+    }
+
     fun dismissMessage() = _state.update { it.copy(message = null) }
 
     companion object {

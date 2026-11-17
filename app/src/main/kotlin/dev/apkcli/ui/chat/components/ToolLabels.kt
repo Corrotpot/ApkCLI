@@ -95,6 +95,20 @@ internal fun toolTarget(name: String, argumentsJson: String): String? {
 private val TARGET_KEYS = listOf("path", "query", "name", "url", "pattern", "command", "paths", "packages")
 
 /**
+ * The whole command a command call runs, every line of it, where
+ * [toolTarget] gives its first line. Null for other tools, and while the
+ * arguments are still being written.
+ */
+internal fun toolCommand(name: String, argumentsJson: String): String? {
+    if (name !in COMMAND_CARDS) return null
+    val args = runCatching { Json.parseToJsonElement(argumentsJson).jsonObject }.getOrNull() ?: return null
+    return (args["command"] as? JsonPrimitive)?.contentOrNull?.trimEnd()?.takeIf { it.isNotBlank() }
+}
+
+/** The calls whose card shows a command, the user's own (`!`) among them. */
+private val COMMAND_CARDS = setOf("sh_exec", "sh_background", "build_run", "test_run", USER_SHELL)
+
+/**
  * [toolTarget] from arguments still being written: the first complete string
  * value under the call's main key in [head], the arguments' beginning. Null
  * until one has arrived whole.

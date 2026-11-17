@@ -80,6 +80,7 @@ import dev.apkcli.ui.chat.components.InfoLine
 import dev.apkcli.ui.chat.components.SubagentArgs
 import dev.apkcli.ui.chat.components.SubagentFind
 import dev.apkcli.ui.chat.components.KeyNoticeCard
+import dev.apkcli.ui.chat.components.LocalFullCommands
 import dev.apkcli.ui.chat.components.MessageMeta
 import dev.apkcli.ui.chat.components.PlanCard
 import dev.apkcli.ui.chat.components.RunningShellCard
@@ -276,6 +277,25 @@ fun ChatScreen(
     ) {
         if (viewModel.followBottom && itemCount > 0) listState.followToBottom(currentItemCount)
     }
+    // A card that changes size once drawn moves the end off the screen with
+    // none of the keys above changing: a command's live terminal giving way
+    // to its result when it ends, a failed call opening by itself, a card
+    // opened or closed. Seen in the layout, to the pixel, and followed while
+    // the user follows the bottom; the chat used to stop short of its end.
+    // Keyed on where the end is rather than on whether it is pinned: back
+    // within PIN_SLACK of the end by hand, the user follows an end that is
+    // not pinned, and the next growth would not change that.
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            val last = layout.visibleItemsInfo.lastOrNull()
+            Triple(layout.totalItemsCount, last?.index, last?.let { it.offset + it.size })
+        }.collect {
+            if (viewModel.followBottom && pinnedToBottom(listState.layoutInfo, slackPx = 0f) == false) {
+                listState.followToBottom(currentItemCount)
+            }
+        }
+    }
 
     // A message that could not be sent, one taken back by a checkpoint, or a
     // queued one taken back, comes back to the composer.
@@ -344,7 +364,10 @@ fun ChatScreen(
         Box(Modifier.weight(1f)) {
             if (state.messages.isEmpty() && state.streaming == null && state.shellRun == null) {
                 EmptyChat(onSuggest = { draft = it })
-            } else CompositionLocalProvider(LocalFindMarks provides marks) {
+            } else CompositionLocalProvider(
+                LocalFindMarks provides marks,
+                LocalFullCommands provides state.settings.showFullCommands,
+            ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().nestedScroll(readingBack),

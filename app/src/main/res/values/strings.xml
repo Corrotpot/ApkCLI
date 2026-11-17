@@ -477,6 +477,8 @@
 
     <!-- Settings -->
     <string name="settings_interface">Interface</string>
+    <string name="settings_full_commands">Show commands in full</string>
+    <string name="settings_full_commands_sub">Command cards show the whole command, while it runs too, not just its first line. Without the tick, tap a card to see it whole.</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">System</string>
     <string name="settings_split_help">“Auto” splits the screen on tablets, foldables and in landscape.</string>

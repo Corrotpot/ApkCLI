@@ -571,6 +571,11 @@ data class AppSettings(
     val recentModels: List<String> = emptyList(),
     /** Show reasoning in the transcript. Off hides it but still accounts for it. */
     val showThinking: Boolean = true,
+    /**
+     * Command cards show the whole command, running or not, where they
+     * otherwise show its first line until opened.
+     */
+    val showFullCommands: Boolean = false,
 
     val context: ContextSettings = ContextSettings(),
     val editor: EditorSettings = EditorSettings(),

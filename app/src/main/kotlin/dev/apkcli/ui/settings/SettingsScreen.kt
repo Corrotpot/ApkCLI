@@ -240,7 +240,16 @@ fun SettingsScreen(
             Note(stringResource(R.string.settings_background_note))
 
             Section(stringResource(R.string.settings_interface))
-            Card { InterfaceSettings(layout = layout, onUpdateLayout = onUpdateLayout) }
+            Card {
+                InterfaceSettings(layout = layout, onUpdateLayout = onUpdateLayout)
+                CardDivider(inset = 0.dp)
+                CheckRow(
+                    title = stringResource(R.string.settings_full_commands),
+                    subtitle = stringResource(R.string.settings_full_commands_sub),
+                    checked = settings.showFullCommands,
+                    onCheckedChange = viewModel::setShowFullCommands,
+                )
+            }
         }
     }
 

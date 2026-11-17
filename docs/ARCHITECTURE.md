@@ -818,6 +818,12 @@ SearXNG) replaces both, though the settings screen does not offer it yet.
   every delta. Reasoning folds when the answer starts, not when the message
   ends, and not under a reader; the streaming item keeps the finished
   message's key, and the reasoning's scroll position is held above both.
+  A card that changes size once drawn moves the end without any of the keys
+  following listens to: a command's live view giving way to its result, a
+  failed call opening by itself, a card opened by a tap. The list also
+  watches its own layout, and while following it goes back to the end when
+  the last item's end is off the screen by a pixel; the chat used to stop
+  short of its end after each command.
 * **Deltas do not mutate the message list.** A 4000-token answer would rebuild
   an immutable `Message` 4000 times. The in-flight message is plain strings in
   `UiState.streaming`, coalesced on a 50ms interval so a fast endpoint cannot
@@ -1206,6 +1212,12 @@ times a second.
 
 The live view under a card scrolls (it holds the last 200 lines) and stays
 at the bottom unless the user drags it up.
+
+A command card's header shows the command's first line. Tapped, it shows the
+whole command, wrapped and scrolling past 240 dp, while the command runs too;
+once it has ended, the opened card shows it above the output instead.
+Settings › Interface › Show commands in full shows it whole on every card,
+opened or not.
 
 ### The agent's terminal
 
