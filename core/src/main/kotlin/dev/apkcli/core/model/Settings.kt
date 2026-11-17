@@ -161,7 +161,11 @@ data class ModelSpec(
     val displayName: String = id,
     /** Total prompt + completion tokens the model accepts. */
     val contextWindow: Int = 128_000,
-    /** Cap on a single response. The prompt budget keeps room for it: [replyReserve]. */
+    /**
+     * Cap on a single response. A request asks for at most [replyCap] of it,
+     * and no more than the window has left
+     * ([dev.apkcli.core.agent.ContextBudget.Accounting.replyTokens]).
+     */
     val maxOutputTokens: Int = 8_192,
     val supportsTools: Boolean = true,
     val supportsStreaming: Boolean = true,
@@ -217,36 +221,54 @@ data class ModelSpec(
      * size well below the window its models list.
      */
     val learnedContextWindow: Int? = null,
+    /**
+     * The most a prompt may hold, where the listing gives it apart from the
+     * window: Kiro's `maxInputTokens`, a LiteLLM listing's
+     * `max_input_tokens` beside its window. Null where it does not, and the
+     * window is the limit. See [inputWindow].
+     */
+    val maxInputTokens: Int? = null,
 ) {
-    /** Usable prompt budget, before any safety reserve. */
-    val promptBudget: Int get() = (contextWindow - replyReserve).coerceAtLeast(1024)
+    /**
+     * The most the prompt may hold: [maxInputTokens] where the listing gives
+     * one within the window, the window otherwise. OpenCode's `inputWindow`.
+     */
+    val inputWindow: Int
+        get() = maxInputTokens?.takeIf { it > 0 }?.coerceAtMost(contextWindow) ?: contextWindow
 
     /**
-     * What the prompt budget leaves of the window for the reply.
-     *
-     * The reply's whole cap while it is at most half the window: Kiro lists
-     * its window as the input limit plus the cap, OpenAI does the same, and
-     * an input past that limit is refused whatever the reply asks. A cap over
-     * half the window is not that. OpenRouter lists 943,718 tokens for
-     * DeepSeek V4.1 Flash on a 1,048,576 window: a reply may take whatever
-     * the prompt leaves. Kept whole, that cap left the prompt a tenth of the
-     * window, and the chat was compacted at 93k. Such a cap keeps 15% of the
-     * window, at least 16k, as OpenCode does, and each request asks for what
-     * is left ([dev.apkcli.core.agent.ContextBudget.Accounting.replyTokens]).
+     * What compaction keeps free of [inputWindow], for the last reply and for
+     * an estimate that runs low: 15% of it, and at least 16k where it is 32k
+     * or more. OpenCode's `RESERVE_SHARE` and `RESERVE_MIN`, whatever the
+     * reply's cap.
      */
-    val replyReserve: Int
-        get() = if (maxOutputTokens.toLong() * 2 <= contextWindow) {
-            maxOutputTokens
-        } else {
-            maxOutputTokens.coerceAtMost(maxOf(REPLY_RESERVE_MIN, (contextWindow * REPLY_RESERVE_SHARE).toInt()))
-        }
+    val compactionReserve: Int
+        get() = maxOf(
+            (inputWindow * COMPACTION_RESERVE_SHARE).toInt(),
+            if (inputWindow >= 2 * COMPACTION_RESERVE_MIN) COMPACTION_RESERVE_MIN else 0,
+        )
+
+    /**
+     * The most the prompt holds before it is compacted: [inputWindow] less
+     * [compactionReserve], OpenCode's ceiling. It used to be the window less
+     * the reply's whole cap, and OpenRouter lists 943,718 tokens for DeepSeek
+     * V4.1 Flash on a 1,048,576 window: the chat was compacted each time it
+     * reached 93k.
+     */
+    val promptBudget: Int get() = (inputWindow - compactionReserve).coerceAtLeast(1024)
+
+    /** The longest reply a request asks for: [maxOutputTokens], at most 256k, as OpenCode asks. */
+    val replyCap: Int get() = maxOutputTokens.coerceIn(1, REPLY_CAP_MAX)
 }
 
-/** The least of the window [ModelSpec.replyReserve] keeps for a reply when the cap is over half of it. */
-private const val REPLY_RESERVE_MIN = 16_000
+/** The least of the window [ModelSpec.compactionReserve] keeps free, from a 32k window up. */
+private const val COMPACTION_RESERVE_MIN = 16_000
 
-/** The share of the window [ModelSpec.replyReserve] keeps when the reply's cap is over half of it. */
-private const val REPLY_RESERVE_SHARE = 0.15
+/** The share of the window [ModelSpec.compactionReserve] keeps free. */
+private const val COMPACTION_RESERVE_SHARE = 0.15
+
+/** The longest reply a request asks for, whatever the model's cap: OpenCode's `OUTPUT_TOKEN_MAX`. */
+private const val REPLY_CAP_MAX = 256_000
 
 /**
  * Which reasoning dialect a model speaks.
@@ -640,16 +662,12 @@ data class ContextSettings(
      * the background. Nothing reads it yet ([dev.apkcli.core.agent.ContextBudget.shouldPrepareEarly]).
      */
     val softThreshold: Float = 0.75f,
-    /** Fraction at which compaction is forced before the next request. */
-    val hardThreshold: Float = 0.90f,
     /** Turns always kept verbatim, however full the window is. */
     val keepRecentTurns: Int = 6,
     /** Tool results larger than this are spilled to a blob and summarised. */
     val toolResultTokenCap: Int = 4_000,
     /** Archived messages re-injected per turn by FTS recall. 0 disables it. */
     val recallHits: Int = 4,
-    /** Reserve left unused, as a safety margin against estimator error. */
-    val safetyReserveTokens: Int = 2_000,
     /** Keep `AGENTS.md` / project memory in every request. */
     val includeProjectMemory: Boolean = true,
 )

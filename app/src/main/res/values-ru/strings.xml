@@ -212,8 +212,7 @@
     <string name="context_instructions">Инструкции</string>
     <string name="context_digest">Сводка</string>
     <string name="context_memory">Память проекта</string>
-    <string name="context_reply_reserve">%1$s зарезервировано под ответ</string>
-    <string name="context_reply_up_to">%1$s зарезервировано под ответ; сейчас он может занять до %2$s</string>
+    <string name="context_reply_room">Ответ может занять до %1$s</string>
     <string name="context_compact_note">Сжатие сворачивает диалог в сводку для агента: само, когда окно почти заполнится, или по команде /compact в чате.</string>
     <string name="context_compact_now">Сжать сейчас</string>
 

@@ -60,10 +60,11 @@ internal object CompactionAsk {
      * is the one the provider has seen. Tools stay declared because the
      * history calls them; the request says not to call any.
      *
-     * Null when it would not fit: the agent's request kept room for the reply
-     * ([ModelSpec.replyReserve], the model's whole output cap while that is
-     * at most half the window), and with this one more message the input
-     * must still leave that room.
+     * Null when it would not fit: with this one more message the input must
+     * still leave the summary its [OUTPUT_TOKENS] of the input limit
+     * ([ModelSpec.inputWindow]), as OpenCode's `summaryRoom`. Compaction
+     * runs with 15% of it still free, so a conversation is asked within
+     * unless the provider has just refused it.
      *
      * @param promptTokens what [base] holds, as the budget counted it.
      * @param nudge said after the request on the second asking.
@@ -71,7 +72,8 @@ internal object CompactionAsk {
     fun within(base: CompletionRequest, promptTokens: Int, nudge: String? = null): CompletionRequest? {
         val model = base.model
         val ask = SystemPrompt.compactionRequest() + nudge?.let { "\n\n$it" }.orEmpty()
-        if (promptTokens + NativeCore.estimateTokens(ask) > model.contextWindow - model.replyReserve) return null
+        val output = OUTPUT_TOKENS.coerceAtMost(model.replyCap)
+        if (promptTokens + NativeCore.estimateTokens(ask) > model.inputWindow - output) return null
         val message = Message(
             id = "compaction-ask",
             sessionId = base.messages.lastOrNull()?.sessionId.orEmpty(),
@@ -82,7 +84,7 @@ internal object CompactionAsk {
             messages = base.messages + message,
             thinking = ThinkingMode.OFF,
             reasoningEffort = quickest(model),
-            maxOutputTokens = OUTPUT_TOKENS.coerceAtMost(model.maxOutputTokens),
+            maxOutputTokens = output,
             temperature = null,
             topP = null,
             stopSequences = emptyList(),

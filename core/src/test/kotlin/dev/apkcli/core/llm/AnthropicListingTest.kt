@@ -43,6 +43,22 @@ class AnthropicListingTest {
     }
 
     @Test
+    fun `an input limit beside the window holds the prompt, one given alone is the window`() {
+        // A LiteLLM proxy's entry for GPT-5.
+        val proxied = Json.parseToJsonElement(
+            """{"id":"gpt-5","context_window":400000,"model_info":{"max_input_tokens":272000,"max_output_tokens":128000}}""",
+        )
+        val gpt = checkNotNull(ModelDiscovery.parseEntry(proxied))
+        assertEquals(400_000, gpt.contextWindow)
+        assertEquals(272_000, gpt.inputWindow)
+        assertEquals(272_000 - 40_800, gpt.promptBudget)
+
+        val claude = checkNotNull(ModelDiscovery.parseEntry(entry("claude-opus-5-5", adaptive = true, enabled = false, disabled = false)))
+        assertNull(claude.maxInputTokens)
+        assertEquals(1_000_000, claude.inputWindow)
+    }
+
+    @Test
     fun `OSC 7 carries the path, with percent escapes decoded`() {
         assertEquals("/data/home/projects/bot", osc7Path("file://localhost/data/home/projects/bot"))
         assertEquals("/a b/ж", osc7Path("file://host/a%20b/%D0%B6"))

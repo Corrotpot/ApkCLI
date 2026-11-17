@@ -434,9 +434,8 @@ fun ContextSheet(
                 stringResource(
                     R.string.context_used_left,
                     tokensText(accounting.promptTokens),
-                    // To where compaction runs (90% of the budget by
-                    // default), not to the end of the budget.
-                    tokensText(accounting.untilCompaction),
+                    // To the budget, which is where compaction runs.
+                    tokensText(accounting.remaining),
                 ),
                 style = Design.Type.BodySmall,
                 color = Design.Colors.TextSecondary,
@@ -461,16 +460,9 @@ fun ContextSheet(
                     )
                 }
             }
-            // What the budget keeps for the reply; and, when the model may
-            // write more while the window has room, as much as this request asks.
-            val reserve = tokensText(accounting.replyReserveTokens)
-            Note(
-                if (accounting.replyTokens > accounting.replyReserveTokens) {
-                    stringResource(R.string.context_reply_up_to, reserve, tokensText(accounting.replyTokens))
-                } else {
-                    stringResource(R.string.context_reply_reserve, reserve)
-                },
-            )
+            // As much as the request asks: the model's cap, at most 256k,
+            // or what the window has left (Accounting.replyTokens).
+            Note(stringResource(R.string.context_reply_room, tokensText(accounting.replyTokens)))
             Note(stringResource(R.string.context_compact_note), icon = Codicons.Fold)
         }
         SheetActions {

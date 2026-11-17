@@ -222,13 +222,13 @@ class AgentRuntime(
 
     private fun budget(settings: AppSettings) = ContextBudget(settings.context)
 
-    private fun compactor(settings: AppSettings) = Compactor(store, llm, settings.context)
+    private fun compactor() = Compactor(store, llm)
 
     private fun loop(settings: AppSettings) = AgentLoop(
         store = store,
         llm = llm,
         registry = registry(settings),
-        compactor = compactor(settings),
+        compactor = compactor(),
         budget = budget(settings),
         layout = layout,
         policy = policy,
@@ -447,7 +447,7 @@ class AgentRuntime(
         }
         val plan = budget(ready.settings).planWhole(live)
         emit(AgentEvent.CompactionStarted(plan.reason, manual = true))
-        val result = compactor(ready.settings).compact(
+        val result = compactor().compact(
             sessionId = sessionId,
             messages = live,
             plan = plan,

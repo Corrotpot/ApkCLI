@@ -542,6 +542,9 @@ class AgentLoop(
                 messages = listOfNotNull(recalled) + live,
                 model = config.model,
                 maxOutputTokens = config.model.maxOutputTokens,
+                // The provider's count of this chat's previous request, by
+                // the model this one goes to.
+                measured = measuredPrompts[config.sessionId]?.takeIf { it.first == config.model.id }?.second,
             ),
         )
     }
@@ -875,6 +878,8 @@ class AgentLoop(
         // which is what makes budgeting on an estimate safe.
         if (promptTokensReported > 0) {
             NativeCore.calibrateTokens(prepared.accounting.promptTokens, promptTokensReported)
+            measuredPrompts[config.sessionId] =
+                config.model.id to ContextBudget.Measured(promptTokensReported, prepared.accounting.promptTokens)
         }
 
         collector.emit(
@@ -1207,7 +1212,7 @@ class AgentLoop(
         val executed = if (cutOff && (use.argumentsJson.isBlank() || !registry.parses(use.argumentsJson))) {
             ToolResult.error(
                 "Not run: your reply reached its output limit " +
-                    "(${lastAccounting?.replyTokens ?: config.model.maxOutputTokens} tokens) " +
+                    "(${lastAccounting?.replyTokens ?: config.model.replyCap} tokens) " +
                     "while this call was being written, so its arguments were cut off. Send less in one " +
                     "call: write a long file in parts — fs_write its beginning, then add the rest with " +
                     "fs_edit, a part per call — and split long commands or scripts the same way.",
@@ -1400,6 +1405,15 @@ class AgentLoop(
 
         /** Tool messages whose count [countedWhole] has looked at, in this process. A loop lasts a turn; this lasts longer. */
         private val countChecked: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+        /**
+         * Per session, the provider's count of its latest request, with the
+         * model that counted it: OpenCode's measured prompt, which sizes the
+         * next reply ([ContextBudget.Accounting.replyTokens]). Kept in this
+         * process, as [countChecked] is, since a loop lasts a turn; after a
+         * restart a chat's first request is estimated whole.
+         */
+        private val measuredPrompts = java.util.concurrent.ConcurrentHashMap<String, Pair<String, ContextBudget.Measured>>()
 
         /** How often a streaming message is written to SQLite. */
         private const val PERSIST_INTERVAL_MS = 400L

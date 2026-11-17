@@ -102,18 +102,19 @@ class CompactionAskTest {
     fun `a conversation that leaves no room for the reply is not asked within`() {
         val base = agentRequest()
 
-        assertNull(CompactionAsk.within(base, promptTokens = model.contextWindow - model.maxOutputTokens))
+        assertNull(CompactionAsk.within(base, promptTokens = model.inputWindow - CompactionAsk.OUTPUT_TOKENS))
     }
 
     @Test
-    fun `a reply cap near the window leaves a long conversation room to be asked within`() {
-        // OpenRouter's listing for DeepSeek V4.1 Flash.
+    fun `a conversation at the compaction point is asked within, with room for the summary`() {
+        // OpenRouter's listing for DeepSeek V4.1 Flash, whose cap kept whole
+        // left room for 104,858 tokens here.
         val roomy = ModelSpec(id = "deepseek-v4.1-flash", contextWindow = 1_048_576, maxOutputTokens = 943_718)
         val base = agentRequest().copy(model = roomy)
 
-        // Kept whole, the cap left room for 104,858 tokens here.
-        checkNotNull(CompactionAsk.within(base, promptTokens = 800_000))
-        assertNull(CompactionAsk.within(base, promptTokens = roomy.contextWindow - roomy.replyReserve))
+        val asked = checkNotNull(CompactionAsk.within(base, promptTokens = roomy.promptBudget))
+        assertEquals(CompactionAsk.OUTPUT_TOKENS, asked.maxOutputTokens)
+        assertNull(CompactionAsk.within(base, promptTokens = roomy.inputWindow - CompactionAsk.OUTPUT_TOKENS))
     }
 
     @Test

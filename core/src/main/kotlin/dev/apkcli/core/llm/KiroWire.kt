@@ -548,13 +548,14 @@ object KiroWire {
             val (support, levels) = reasoningOf(id, entry)
             val caching = cachingOf(entry)
             val rate = (entry["rateMultiplier"] as? JsonPrimitive)?.doubleOrNull
-            // The listing's input limit is the prompt budget; the window is
-            // that plus the answer a request asks room for.
+            // The listing's input limit holds the prompt; the window is that
+            // plus the answer a request asks room for.
             val answer = (output ?: MAX_OUTPUT_TOKENS).coerceAtMost(MAX_OUTPUT_TOKENS)
             ModelSpec(
                 id = id,
                 displayName = entry.string("modelName")?.takeIf { it.isNotBlank() } ?: id,
                 contextWindow = (input ?: DEFAULT_WINDOW) + answer,
+                maxInputTokens = input,
                 maxOutputTokens = answer,
                 supportsTools = true,
                 supportsImages = acceptsImages(id, entry),

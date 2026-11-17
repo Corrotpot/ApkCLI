@@ -71,7 +71,7 @@ class ContextAccountingTest {
     /** OpenRouter's listing for DeepSeek V4.1 Flash: a reply may take nearly all of the window. */
     private val roomy = ModelSpec(id = "deepseek/deepseek-v4.1-flash-1017", contextWindow = 1_048_576, maxOutputTokens = 943_718)
 
-    private fun conversation(tokens: Int, on: ModelSpec) = budget.account(
+    private fun conversation(tokens: Int, on: ModelSpec, measured: ContextBudget.Measured? = null) = budget.account(
         systemPrompt = "You are a coding agent.",
         toolSchemaTokens = 0,
         digest = null,
@@ -81,54 +81,75 @@ class ContextAccountingTest {
         ),
         model = on,
         maxOutputTokens = on.maxOutputTokens,
+        measured = measured,
     )
 
+    /** OpenCode's `outputLimit` for a prompt none of which the provider has counted. */
+    private fun uncounted(accounting: ContextBudget.Accounting): Long =
+        accounting.contextWindow * 99L / 100 - (accounting.promptTokens * 115L + 99) / 100
+
     @Test
-    fun `a reply cap near the window leaves the prompt most of it`() {
+    fun `compaction keeps 15 percent of the window free whatever the reply's cap, as OpenCode does`() {
         val accounting = conversation(93_000, on = roomy)
 
-        // 15% of the window is kept for the reply, not the whole cap, which
-        // left a budget of 103k and compacted the chat at 93k.
-        assertEquals(157_286, accounting.replyReserveTokens)
-        assertEquals(1_048_576 - 157_286 - 2_000, accounting.promptBudget)
+        // Not the whole cap, which left a budget of 103k and compacted the chat at 93k.
+        assertEquals(1_048_576 - 157_286, accounting.promptBudget)
         assertFalse(budget.needsCompaction(accounting))
-        // To where compaction runs, 90% of the budget, not to its end.
-        assertEquals(800_361 - accounting.promptTokens, accounting.untilCompaction)
+        assertEquals(accounting.promptBudget - accounting.promptTokens, accounting.remaining)
+        assertTrue(budget.needsCompaction(conversation(accounting.promptBudget, on = roomy)))
+        // A cap under half the window, the same: DeepSeek V4 Flash.
+        assertEquals(891_290, ModelSpec(id = "deepseek-v4-flash", contextWindow = 1_048_576, maxOutputTokens = 393_216).promptBudget)
+        // At least 16k from a 32k window up.
+        assertEquals(64_000 - 16_000, ModelSpec(id = "small", contextWindow = 64_000).promptBudget)
     }
 
     @Test
-    fun `the reply asked for fits what the prompt leaves of the window`() {
-        val early = conversation(93_000, on = roomy)
-        // Room for the estimate to run 15% low, and 1% of the window.
-        assertTrue(early.replyTokens > 900_000)
-        assertTrue(early.promptTokens * 115 / 100 + early.replyTokens <= roomy.contextWindow * 99 / 100)
-
-        // Past the compaction threshold, within the budget: the reserve whole.
-        val late = conversation(850_000, on = roomy)
-        assertTrue(budget.needsCompaction(late))
-        assertEquals(late.replyReserveTokens, late.replyTokens)
-        assertTrue(late.promptTokens + late.replyTokens <= roomy.contextWindow - late.reserveTokens)
-    }
-
-    @Test
-    fun `a cap within half the window is kept and asked whole, as before`() {
+    fun `the input limit holds the prompt where the listing gives one`() {
         // Kiro: the window is the input limit plus the cap.
-        val kiro = ModelSpec(id = "claude-opus-4.6", contextWindow = 1_032_000, maxOutputTokens = 32_000)
+        val kiro = ModelSpec(id = "claude-opus-4.6", contextWindow = 1_032_000, maxOutputTokens = 32_000, maxInputTokens = 1_000_000)
         val accounting = conversation(500_000, on = kiro)
 
-        assertEquals(32_000, accounting.replyReserveTokens)
-        assertEquals(1_032_000 - 32_000 - 2_000, accounting.promptBudget)
+        assertEquals(1_000_000 - 150_000, accounting.promptBudget)
         assertEquals(32_000, accounting.replyTokens)
         // GPT-5: a 272k input limit under a 400k window.
-        assertEquals(128_000, ModelSpec(id = "gpt-5", contextWindow = 400_000, maxOutputTokens = 128_000).replyReserve)
+        val gpt = ModelSpec(id = "gpt-5", contextWindow = 400_000, maxOutputTokens = 128_000, maxInputTokens = 272_000)
+        assertEquals(272_000 - 40_800, gpt.promptBudget)
     }
 
     @Test
-    fun `past the budget the reply shrinks to what the window has left`() {
-        val over = conversation(96_500, on = model)
-        assertEquals(model.contextWindow - over.promptTokens - 2_000, over.replyTokens)
-        assertTrue(over.replyTokens < model.maxOutputTokens)
+    fun `a reply is the cap, at most 256k, while the window has room`() {
+        assertEquals(256_000, conversation(93_000, on = roomy).replyTokens)
+        assertEquals(model.maxOutputTokens, conversation(10_000, on = model).replyTokens)
+    }
 
+    @Test
+    fun `near the compaction point the reply fits what the window has left`() {
+        // Not counted: the whole prompt may be 15% more than estimated, and
+        // 1% of the window stays free.
+        val late = conversation(880_000, on = roomy)
+        assertEquals(uncounted(late), late.replyTokens.toLong())
+        assertTrue(late.replyTokens < 50_000)
+
+        // Counted by the provider at the last request: only what was added since may be.
+        val counted = ContextBudget.Measured(reported = 860_000, estimated = 860_000)
+        val measured = conversation(880_000, on = roomy, measured = counted)
+        val added = measured.promptTokens - 860_000L
+        assertEquals(roomy.contextWindow * 99L / 100 - 860_000 - (added * 115 + 99) / 100, measured.replyTokens.toLong())
+        assertTrue(measured.replyTokens > 150_000)
+    }
+
+    @Test
+    fun `a count of a longer prompt than this one is not used`() {
+        // Compacted since: what the provider counted is not in the prompt now.
+        val counted = ContextBudget.Measured(reported = 860_000, estimated = 860_000)
+        val after = conversation(700_000, on = roomy, measured = counted)
+
+        assertEquals(uncounted(after), after.replyTokens.toLong())
+        assertTrue(after.replyTokens < 256_000)
+    }
+
+    @Test
+    fun `past the window the reply is never less than 1024`() {
         assertEquals(ContextBudget.MIN_REPLY_TOKENS, conversation(99_000, on = model).replyTokens)
     }
 }

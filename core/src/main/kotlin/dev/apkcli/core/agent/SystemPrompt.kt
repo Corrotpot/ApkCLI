@@ -560,7 +560,10 @@ object SystemPrompt {
             appendLine("How full your context window is appears under \"This request\" at the end of this prompt.")
             // Said up front: a reply that reaches the limit is cut off, and a
             // call cut off is not run (AgentLoop.runOne says so after the fact).
-            val outputLimit = inputs.model.maxOutputTokens
+            // The cap a request asks for, not what this one asks as the
+            // window fills (ContextBudget.Accounting.replyTokens): the line
+            // stays the same from request to request, and so does the cache.
+            val outputLimit = inputs.model.replyCap
             if (outputLimit > 0) {
                 appendLine()
                 appendLine(

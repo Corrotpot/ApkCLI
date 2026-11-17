@@ -214,24 +214,28 @@ message, so it is left out of the messages' count. Both used to be counted
 twice: the meter read high, compaction came early, and the estimator was
 calibrated against a larger prompt than the one sent.
 
-The budget is the window less what is kept for the reply and a 2,000-token
-safety margin. What is kept is the reply's whole output cap while that cap is
-at most half the window: Kiro and OpenAI list the window as the input limit
-plus the cap, and an input past that limit is refused. A cap over half the
-window means a reply may take whatever the prompt leaves. OpenRouter lists
-943,718 tokens for DeepSeek V4.1 Flash on a 1,048,576 window; kept whole, that
-left a 103k budget, and the chat was compacted each time it reached 93k.
-Such a cap keeps 15% of the window, at least 16k, as OpenCode does
-(`ModelSpec.replyReserve`). Each request then asks for no longer a reply than
-the window has left (`Accounting.replyTokens`, OpenCode's `outputLimit`):
-above the reserve it allows for the estimate running 15% low and for 1% of the
-window, and it never asks for less than 1,024 tokens. A cap within the reserve
-is asked whole while the prompt is within the budget, as before. The context
-sheet shows how far the prompt is from the hard threshold, not from the end of
-the budget.
+The budget is OpenCode's: the input limit less 15% of it, and less at least 16k
+from a 32k window up (`ModelSpec.promptBudget`). The input limit is the window,
+or the listing's own limit where it gives one beside the window
+(`ModelSpec.maxInputTokens`): Kiro's `maxInputTokens`, a LiteLLM listing's
+`max_input_tokens`. When the prompt reaches the budget, the window is compacted
+before the next request, and the context sheet counts down to that. It used to
+be 90% of what the window left after the reply's whole cap and a 2,000-token
+margin;
+OpenRouter lists 943,718 tokens for DeepSeek V4.1 Flash on a 1,048,576 window,
+which left a 103k budget, and the chat was compacted each time it reached 93k.
+Now it is compacted at 891k.
 
-At 90% of the budget (the hard threshold) the window is compacted before the
-next request. The soft threshold (75%) is in the settings, but nothing
+Each request asks for the model's cap, at most 256k, or what the window has
+left when that is less, and never for less than 1,024 tokens
+(`Accounting.replyTokens`, OpenCode's `outputLimit`). What is left keeps 1% of
+the window and allows for the estimate running 15% low on what the provider has
+not counted. The provider's count of a chat's previous request is kept in
+memory (`ContextBudget.Measured`), so only what was added since is estimated.
+Without it the margin applied to the whole prompt, and near the budget a reply
+would have been cut to a few thousand tokens. After a restart, or when the
+prompt is smaller than the counted one (it was compacted since), the whole
+prompt is estimated. The soft threshold (75%) is in the settings, but nothing
 summarises in the background yet: the user waits for the summary, which is one
 reason it is asked to be short.
 

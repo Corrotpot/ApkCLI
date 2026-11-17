@@ -242,6 +242,7 @@ class SettingsRepository(
                                     ?.coerceAtMost(detail.contextWindow)
                                     ?: detail.contextWindow,
                                 maxOutputTokens = detail.maxOutputTokens,
+                                maxInputTokens = detail.maxInputTokens,
                                 supportsTools = model.supportsTools && detail.supportsTools,
                                 supportsImages = model.supportsImages || detail.supportsImages,
                                 reasoning = if (detail.reasoning != ReasoningSupport.NONE) detail.reasoning else model.reasoning,

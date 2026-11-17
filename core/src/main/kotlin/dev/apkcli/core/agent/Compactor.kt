@@ -6,7 +6,6 @@ import dev.apkcli.core.llm.LlmClient
 import dev.apkcli.core.llm.LlmError
 import dev.apkcli.core.llm.StreamEvent
 import dev.apkcli.core.model.Block
-import dev.apkcli.core.model.ContextSettings
 import dev.apkcli.core.model.ConversationDigest
 import dev.apkcli.core.model.Endpoint
 import dev.apkcli.core.model.Message
@@ -56,7 +55,6 @@ import kotlinx.coroutines.withContext
 class Compactor(
     private val store: ConversationStore,
     private val llm: LlmClient,
-    private val settings: ContextSettings,
 ) {
 
     /**
@@ -235,16 +233,14 @@ class Compactor(
         val system = SystemPrompt.compactionInstruction(focus)
         val header = "## Conversation span to digest (turns ${span.first().seq}–${span.last().seq})\n\n"
         val previousBlock = previous?.let { "\n\n## Previous digest, to merge into\n\n${it.render()}" }.orEmpty()
-        val output = CompactionAsk.OUTPUT_TOKENS.coerceAtMost(model.maxOutputTokens)
+        val output = CompactionAsk.OUTPUT_TOKENS.coerceAtMost(model.replyCap)
         val around = NativeCore.estimateTokens(system) + NativeCore.estimateTokens(header + previousBlock) +
             NativeCore.estimateTokens(CompactionAsk.NUDGE)
-        // The input the agent's own requests may carry, not the window less
-        // this reply: Kiro's window is its input limit plus the whole output
-        // cap, which is its reply reserve, and an input past that limit is
-        // refused whatever the reply asks. A cap over half the window keeps
-        // less (ModelSpec.replyReserve): kept whole, 943,718 tokens of a
-        // 1,048,576 window left a transcript of 100k.
-        var room = model.contextWindow - model.replyReserve - settings.safetyReserveTokens - around
+        // What the agent's own requests are kept to (ModelSpec.promptBudget,
+        // OpenCode's ceiling, which a transcript is fitted into there too):
+        // within the input limit, which Kiro refuses past whatever the reply
+        // asks, with 15% of it left for this reply.
+        var room = model.promptBudget - around
         var level = 0
         var shrinks = 0
         var nudge: String? = null

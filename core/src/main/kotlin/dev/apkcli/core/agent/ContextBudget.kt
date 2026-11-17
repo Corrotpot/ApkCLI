@@ -39,53 +39,59 @@ class ContextBudget(private val settings: ContextSettings) {
         val digestTokens: Int,
         val memoryTokens: Int,
         val liveMessageTokens: Int,
-        /** A safety margin for the estimator's error. */
+        /** What compaction keeps free of [inputWindow]: [ModelSpec.compactionReserve]. */
         val reserveTokens: Int,
-        /** The longest reply the model may write: its cap, or less where less was asked. */
+        /** The longest reply the request may ask for: [ModelSpec.replyCap], or less where less was asked. */
         val maxOutputTokens: Int,
+        /** The prompt and the reply together. */
         val contextWindow: Int,
-        /** What the budget leaves of the window for the reply: [ModelSpec.replyReserve]. */
-        val replyReserveTokens: Int = maxOutputTokens,
-        /** The share of [promptBudget] at which compaction runs: [ContextSettings.hardThreshold]. */
-        val compactAt: Float = 1f,
+        /** The most the prompt may hold: [ModelSpec.inputWindow]. */
+        val inputWindow: Int = contextWindow,
+        /** The provider's count of this session's previous request, where known: see [replyTokens]. */
+        val measured: Measured? = null,
     ) {
         /** Tokens the next request will actually send. */
         val promptTokens: Int
             get() = systemTokens + toolSchemaTokens + digestTokens + memoryTokens + liveMessageTokens
 
         /**
-         * Tokens available for the prompt: the window minus what is kept for
-         * the reply, minus a safety margin for estimator error.
+         * The most the prompt holds before it is compacted: [inputWindow]
+         * less [reserveTokens], OpenCode's ceiling.
          */
         val promptBudget: Int
-            get() = (contextWindow - replyReserveTokens - reserveTokens).coerceAtLeast(2_048)
+            get() = (inputWindow - reserveTokens).coerceAtLeast(2_048)
 
         val fraction: Float
             get() = if (promptBudget <= 0) 1f else promptTokens.toFloat() / promptBudget
 
-        /** How much the prompt can still grow before compaction runs. */
-        val untilCompaction: Int
-            get() = (Math.round(promptBudget * compactAt.toDouble()).toInt() - promptTokens).coerceAtLeast(0)
+        /** How much the prompt can still grow before it is compacted. */
+        val remaining: Int get() = (promptBudget - promptTokens).coerceAtLeast(0)
 
         /**
-         * The reply the request asks for: [maxOutputTokens], or what the
-         * prompt leaves of the window when that is less. Asked whole, a cap
-         * of 943,718 tokens on a 1,048,576 window would go past the window
-         * once the prompt passed 105k, and strict providers refuse that.
+         * The reply the request asks for, as OpenCode's `outputLimit`:
+         * [maxOutputTokens], or what the prompt leaves of the window when
+         * that is less, and never less than [MIN_REPLY_TOKENS]. A prompt and
+         * a reply past the window are refused by strict providers, and a cap
+         * of 943,718 tokens on a 1,048,576 window goes past it once the
+         * prompt passes 105k.
          *
-         * Above [replyReserveTokens] the estimate's error is allowed for, as
-         * OpenCode does: 1% of the window and 15% of the prompt. Up to it,
-         * only [reserveTokens], as before: the budget keeps that room, and a
-         * cap within it is asked whole while the prompt is within the budget.
-         * Never less than [MIN_REPLY_TOKENS].
+         * What is left keeps 1% of the window, and allows for the estimate
+         * running 15% low on what the provider has not counted: the whole
+         * prompt, or what was added since the request [measured] counted.
+         * Allowed on the whole prompt every time, the margin cut a reply near
+         * the compaction point to a few thousand tokens.
          */
         val replyTokens: Int
             get() {
-                val exact = contextWindow - promptTokens - reserveTokens
-                val headroom = (contextWindow + 99L) / 100
-                val error = (promptTokens * 15L + 99) / 100
-                val careful = minOf(exact.toLong(), contextWindow - headroom - promptTokens - error).toInt()
-                return minOf(maxOutputTokens, maxOf(minOf(replyReserveTokens, exact), careful, MIN_REPLY_TOKENS))
+                // Counted, where this prompt is that one and more. Less than
+                // it, something was taken out (a compaction, the recalled
+                // history), and the count says nothing about what is left.
+                val counted = measured?.takeIf { it.reported > 0 && promptTokens >= it.estimated }
+                val known = counted?.reported?.toLong() ?: 0L
+                val unknown = (promptTokens - (counted?.estimated ?: 0)).toLong()
+                val room = contextWindow * (100L - HEADROOM_PERCENT) / 100 - known -
+                    (unknown * (100 + ESTIMATE_ERROR_PERCENT) + 99) / 100
+                return room.coerceAtLeast(MIN_REPLY_TOKENS.toLong()).coerceAtMost(maxOutputTokens.toLong()).toInt()
             }
 
         /**
@@ -113,6 +119,8 @@ class ContextBudget(private val settings: ContextSettings) {
      *   by all of it and compaction came early.
      * @param messages the window and any recalled history, without the
      *   digest's message: [digest] is that.
+     * @param measured the provider's count of this session's previous
+     *   request, which sizes the reply ([Accounting.replyTokens]).
      */
     fun account(
         systemPrompt: String,
@@ -122,30 +130,42 @@ class ContextBudget(private val settings: ContextSettings) {
         messages: List<Message>,
         model: ModelSpec,
         maxOutputTokens: Int,
+        measured: Measured? = null,
     ): Accounting {
         val memoryTokens = memory?.let { NativeCore.estimateTokens(it) } ?: 0
-        val output = maxOutputTokens.coerceAtMost(model.maxOutputTokens)
         return Accounting(
             systemTokens = (NativeCore.estimateTokens(systemPrompt) - memoryTokens).coerceAtLeast(0),
             toolSchemaTokens = toolSchemaTokens,
             digestTokens = digest?.let { NativeCore.estimateTokens(it) } ?: 0,
             memoryTokens = memoryTokens,
             liveMessageTokens = messages.sumOf { it.tokens },
-            reserveTokens = settings.safetyReserveTokens,
-            maxOutputTokens = output,
+            reserveTokens = model.compactionReserve,
+            maxOutputTokens = maxOutputTokens.coerceAtMost(model.replyCap),
             contextWindow = model.contextWindow,
-            replyReserveTokens = model.replyReserve.coerceAtMost(output),
-            compactAt = settings.hardThreshold,
+            inputWindow = model.inputWindow,
+            measured = measured,
         )
     }
 
-    /** Compact before the next request. */
-    fun needsCompaction(accounting: Accounting): Boolean =
-        accounting.fraction >= settings.hardThreshold
+    /**
+     * The provider's count of a request ([reported]), and the estimate it
+     * was sent with ([estimated]): OpenCode's measured prompt. A request that
+     * extends it is taken at that count, and only what was added since is
+     * estimated ([Accounting.replyTokens]).
+     */
+    data class Measured(val reported: Int, val estimated: Int)
 
     /**
-     * Whether a digest could be prepared in the background now, ahead of the
-     * hard threshold, so the summarising request would run while the user
+     * Compact before the next request: the prompt has reached the budget,
+     * where OpenCode compacts. It used to be 90% of a budget that kept the
+     * reply's whole cap free.
+     */
+    fun needsCompaction(accounting: Accounting): Boolean =
+        accounting.promptTokens >= accounting.promptBudget
+
+    /**
+     * Whether a digest could be prepared in the background now, ahead of
+     * compaction, so the summarising request would run while the user
      * reads the previous answer rather than while they wait for the next.
      *
      * Nothing calls it yet: the summary is asked when compaction is due, and
@@ -421,5 +441,11 @@ class ContextBudget(private val settings: ContextSettings) {
 
         /** The least reply a request asks for, however full the window: OpenCode's floor. */
         const val MIN_REPLY_TOKENS = 1_024
+
+        /** The share of the window a request leaves unused: OpenCode's `WINDOW_HEADROOM`. */
+        private const val HEADROOM_PERCENT = 1
+
+        /** How low an estimate may run: OpenCode's `ESTIMATE_ERROR`. */
+        private const val ESTIMATE_ERROR_PERCENT = 15
     }
 }

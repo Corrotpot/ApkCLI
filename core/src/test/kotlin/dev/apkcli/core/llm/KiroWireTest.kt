@@ -371,7 +371,9 @@ class KiroWireTest {
         val opus = models[0]
         assertEquals("Claude Opus 5.5", opus.displayName)
         assertEquals("the answer cap is what a request may ask", KiroWire.MAX_OUTPUT_TOKENS, opus.maxOutputTokens)
-        assertEquals(1_000_000, opus.promptBudget)
+        assertEquals("the prompt is held to the input limit", 1_000_000, opus.inputWindow)
+        // Compacted with 15% of it free, as OpenCode does.
+        assertEquals(850_000, opus.promptBudget)
         assertTrue(opus.metadataFromEndpoint)
         assertTrue(opus.supportsImages)
         assertTrue(opus.notes.contains("×2 credits"))

@@ -44,7 +44,7 @@ class CompactionPlanTest {
         val ask = user()
         val rounds = (1..10).flatMap { round(resultTokens = 1_000) }
         val messages = listOf(ask) + rounds
-        val acc = accounting(messages, window = 11_000)
+        val acc = accounting(messages, window = 10_000)
         assertTrue(budget.needsCompaction(acc))
 
         val plan = budget.planCompaction(messages, acc, keepSeqs = setOf(ask.seq))

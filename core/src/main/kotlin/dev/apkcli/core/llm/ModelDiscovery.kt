@@ -91,6 +91,11 @@ object ModelDiscovery {
         "n_ctx", "num_ctx", "n_ctx_train",
     )
 
+    /** Input limit fields, which [CONTEXT_KEYS] also reads for the window where there is no other. */
+    private val INPUT_KEYS = listOf(
+        "max_input_tokens", "maxInputTokens", "input_token_limit", "inputTokenLimit", "max_prompt_tokens",
+    )
+
     /** `max_tokens` is last: a few servers use it for the whole window. */
     private val OUTPUT_KEYS = listOf(
         "max_completion_tokens", "max_output_tokens", "maxOutputTokens",
@@ -221,6 +226,11 @@ object ModelDiscovery {
         // leaves room for a long reasoning phase.
         val maxOutput = reportedMaxOutput
             ?: (contextWindow / 4).coerceIn(1_024, 32_768).coerceAtMost(contextWindow / 2)
+        // --- input limit ---------------------------------------------------
+        // Where it is given beside the window (LiteLLM's model_info has both),
+        // the prompt is held to it, as OpenCode does. Given alone, it was the
+        // window above.
+        val reportedInput = findTokenCount(entry, INPUT_KEYS, CONTEXT_RANGE)?.takeIf { it < contextWindow }
 
         // --- capabilities --------------------------------------------------
         val supportedParameters = entry.strings("supported_parameters").map(String::lowercase)
@@ -304,6 +314,7 @@ object ModelDiscovery {
             thinkingTypes = thinkingTypes(capabilities),
             metadataFromEndpoint = reportedContext != null,
             notes = buildNotes(entry, reportedContext != null),
+            maxInputTokens = reportedInput,
         )
     }
 
