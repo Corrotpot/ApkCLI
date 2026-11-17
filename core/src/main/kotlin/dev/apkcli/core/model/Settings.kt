@@ -161,7 +161,7 @@ data class ModelSpec(
     val displayName: String = id,
     /** Total prompt + completion tokens the model accepts. */
     val contextWindow: Int = 128_000,
-    /** Cap on a single response. Subtracted from the usable prompt budget. */
+    /** Cap on a single response. The prompt budget keeps room for it: [replyReserve]. */
     val maxOutputTokens: Int = 8_192,
     val supportsTools: Boolean = true,
     val supportsStreaming: Boolean = true,
@@ -219,8 +219,34 @@ data class ModelSpec(
     val learnedContextWindow: Int? = null,
 ) {
     /** Usable prompt budget, before any safety reserve. */
-    val promptBudget: Int get() = (contextWindow - maxOutputTokens).coerceAtLeast(1024)
+    val promptBudget: Int get() = (contextWindow - replyReserve).coerceAtLeast(1024)
+
+    /**
+     * What the prompt budget leaves of the window for the reply.
+     *
+     * The reply's whole cap while it is at most half the window: Kiro lists
+     * its window as the input limit plus the cap, OpenAI does the same, and
+     * an input past that limit is refused whatever the reply asks. A cap over
+     * half the window is not that. OpenRouter lists 943,718 tokens for
+     * DeepSeek V4.1 Flash on a 1,048,576 window: a reply may take whatever
+     * the prompt leaves. Kept whole, that cap left the prompt a tenth of the
+     * window, and the chat was compacted at 93k. Such a cap keeps 15% of the
+     * window, at least 16k, as OpenCode does, and each request asks for what
+     * is left ([dev.apkcli.core.agent.ContextBudget.Accounting.replyTokens]).
+     */
+    val replyReserve: Int
+        get() = if (maxOutputTokens.toLong() * 2 <= contextWindow) {
+            maxOutputTokens
+        } else {
+            maxOutputTokens.coerceAtMost(maxOf(REPLY_RESERVE_MIN, (contextWindow * REPLY_RESERVE_SHARE).toInt()))
+        }
 }
+
+/** The least of the window [ModelSpec.replyReserve] keeps for a reply when the cap is over half of it. */
+private const val REPLY_RESERVE_MIN = 16_000
+
+/** The share of the window [ModelSpec.replyReserve] keeps when the reply's cap is over half of it. */
+private const val REPLY_RESERVE_SHARE = 0.15
 
 /**
  * Which reasoning dialect a model speaks.

@@ -106,6 +106,17 @@ class CompactionAskTest {
     }
 
     @Test
+    fun `a reply cap near the window leaves a long conversation room to be asked within`() {
+        // OpenRouter's listing for DeepSeek V4.1 Flash.
+        val roomy = ModelSpec(id = "deepseek-v4.1-flash", contextWindow = 1_048_576, maxOutputTokens = 943_718)
+        val base = agentRequest().copy(model = roomy)
+
+        // Kept whole, the cap left room for 104,858 tokens here.
+        checkNotNull(CompactionAsk.within(base, promptTokens = 800_000))
+        assertNull(CompactionAsk.within(base, promptTokens = roomy.contextWindow - roomy.replyReserve))
+    }
+
+    @Test
     fun `the least reasoning is a named level only where the request names one`() {
         val effort = ModelSpec(id = "gpt", reasoning = ReasoningSupport.EFFORT, reasoningEfforts = listOf("minimal", "low", "high"))
         val adaptive = ModelSpec(id = "claude", reasoning = ReasoningSupport.ADAPTIVE, reasoningEfforts = listOf("low", "high"))

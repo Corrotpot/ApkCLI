@@ -294,7 +294,7 @@ class AgentLoop(
                         // The window that fits: the provider's word for it, or
                         // a tenth under the prompt it just refused.
                         val refused = prepared.accounting
-                        val window = (error.discoveredContextLimit ?: (refused.promptTokens * 9 / 10 + refused.maxOutputTokens))
+                        val window = (error.discoveredContextLimit ?: (refused.promptTokens * 9 / 10 + refused.replyTokens))
                             .coerceAtMost(current.model.contextWindow)
                         current = current.copy(model = current.model.copy(contextWindow = window))
                         val again = prepare(current, null)
@@ -675,7 +675,9 @@ class AgentLoop(
         tools = registry.declarationsFor(config.agent),
         thinking = config.thinkingMode,
         reasoningEffort = config.reasoningEffort,
-        maxOutputTokens = config.model.maxOutputTokens,
+        // What the prompt leaves of the window, when that is less than the
+        // model's cap: ContextBudget.Accounting.replyTokens.
+        maxOutputTokens = prepared.accounting.replyTokens,
         stream = true,
         // The summary asked within this request is a copy of it, so it goes
         // to the same provider, whose cache holds the conversation.
@@ -850,7 +852,7 @@ class AgentLoop(
         val notice = if (failure != null) {
             Block.Notice(Block.Notice.FAILED, text = failure.message)
         } else {
-            StopReasons.notice(finishReason, config.model.maxOutputTokens)
+            StopReasons.notice(finishReason, prepared.accounting.replyTokens)
         }
         val blocks = snapshotBlocks(
             text, thinking, thinkingSignature, thinkingRedacted,
@@ -1204,7 +1206,8 @@ class AgentLoop(
         // place, and went round until the iteration cap.
         val executed = if (cutOff && (use.argumentsJson.isBlank() || !registry.parses(use.argumentsJson))) {
             ToolResult.error(
-                "Not run: your reply reached its output limit (${config.model.maxOutputTokens} tokens) " +
+                "Not run: your reply reached its output limit " +
+                    "(${lastAccounting?.replyTokens ?: config.model.maxOutputTokens} tokens) " +
                     "while this call was being written, so its arguments were cut off. Send less in one " +
                     "call: write a long file in parts — fs_write its beginning, then add the rest with " +
                     "fs_edit, a part per call — and split long commands or scripts the same way.",

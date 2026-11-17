@@ -240,8 +240,11 @@ class Compactor(
             NativeCore.estimateTokens(CompactionAsk.NUDGE)
         // The input the agent's own requests may carry, not the window less
         // this reply: Kiro's window is its input limit plus the whole output
-        // cap, and an input past that limit is refused whatever the reply asks.
-        var room = model.contextWindow - model.maxOutputTokens - settings.safetyReserveTokens - around
+        // cap, which is its reply reserve, and an input past that limit is
+        // refused whatever the reply asks. A cap over half the window keeps
+        // less (ModelSpec.replyReserve): kept whole, 943,718 tokens of a
+        // 1,048,576 window left a transcript of 100k.
+        var room = model.contextWindow - model.replyReserve - settings.safetyReserveTokens - around
         var level = 0
         var shrinks = 0
         var nudge: String? = null

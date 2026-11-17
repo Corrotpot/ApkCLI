@@ -222,6 +222,7 @@
     <string name="context_digest">Digest</string>
     <string name="context_memory">Project memory</string>
     <string name="context_reply_reserve">%1$s reserved for the reply</string>
+    <string name="context_reply_up_to">%1$s reserved for the reply; for now it may take up to %2$s</string>
     <string name="context_compact_note">Compaction folds the conversation into a summary for the agent: on its own when the window is almost full, or with the /compact command in the chat.</string>
     <string name="context_compact_now">Compact now</string>
 

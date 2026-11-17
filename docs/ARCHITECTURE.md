@@ -214,6 +214,22 @@ message, so it is left out of the messages' count. Both used to be counted
 twice: the meter read high, compaction came early, and the estimator was
 calibrated against a larger prompt than the one sent.
 
+The budget is the window less what is kept for the reply and a 2,000-token
+safety margin. What is kept is the reply's whole output cap while that cap is
+at most half the window: Kiro and OpenAI list the window as the input limit
+plus the cap, and an input past that limit is refused. A cap over half the
+window means a reply may take whatever the prompt leaves. OpenRouter lists
+943,718 tokens for DeepSeek V4.1 Flash on a 1,048,576 window; kept whole, that
+left a 103k budget, and the chat was compacted each time it reached 93k.
+Such a cap keeps 15% of the window, at least 16k, as OpenCode does
+(`ModelSpec.replyReserve`). Each request then asks for no longer a reply than
+the window has left (`Accounting.replyTokens`, OpenCode's `outputLimit`):
+above the reserve it allows for the estimate running 15% low and for 1% of the
+window, and it never asks for less than 1,024 tokens. A cap within the reserve
+is asked whole while the prompt is within the budget, as before. The context
+sheet shows how far the prompt is from the hard threshold, not from the end of
+the budget.
+
 At 90% of the budget (the hard threshold) the window is compacted before the
 next request. The soft threshold (75%) is in the settings, but nothing
 summarises in the background yet: the user waits for the summary, which is one

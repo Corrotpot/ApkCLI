@@ -39,25 +39,54 @@ class ContextBudget(private val settings: ContextSettings) {
         val digestTokens: Int,
         val memoryTokens: Int,
         val liveMessageTokens: Int,
+        /** A safety margin for the estimator's error. */
         val reserveTokens: Int,
+        /** The longest reply the model may write: its cap, or less where less was asked. */
         val maxOutputTokens: Int,
         val contextWindow: Int,
+        /** What the budget leaves of the window for the reply: [ModelSpec.replyReserve]. */
+        val replyReserveTokens: Int = maxOutputTokens,
+        /** The share of [promptBudget] at which compaction runs: [ContextSettings.hardThreshold]. */
+        val compactAt: Float = 1f,
     ) {
         /** Tokens the next request will actually send. */
         val promptTokens: Int
             get() = systemTokens + toolSchemaTokens + digestTokens + memoryTokens + liveMessageTokens
 
         /**
-         * Tokens available for the prompt: the window minus the reply we asked
-         * for, minus a safety margin for estimator error.
+         * Tokens available for the prompt: the window minus what is kept for
+         * the reply, minus a safety margin for estimator error.
          */
         val promptBudget: Int
-            get() = (contextWindow - maxOutputTokens - reserveTokens).coerceAtLeast(2_048)
+            get() = (contextWindow - replyReserveTokens - reserveTokens).coerceAtLeast(2_048)
 
         val fraction: Float
             get() = if (promptBudget <= 0) 1f else promptTokens.toFloat() / promptBudget
 
-        val remaining: Int get() = (promptBudget - promptTokens).coerceAtLeast(0)
+        /** How much the prompt can still grow before compaction runs. */
+        val untilCompaction: Int
+            get() = (Math.round(promptBudget * compactAt.toDouble()).toInt() - promptTokens).coerceAtLeast(0)
+
+        /**
+         * The reply the request asks for: [maxOutputTokens], or what the
+         * prompt leaves of the window when that is less. Asked whole, a cap
+         * of 943,718 tokens on a 1,048,576 window would go past the window
+         * once the prompt passed 105k, and strict providers refuse that.
+         *
+         * Above [replyReserveTokens] the estimate's error is allowed for, as
+         * OpenCode does: 1% of the window and 15% of the prompt. Up to it,
+         * only [reserveTokens], as before: the budget keeps that room, and a
+         * cap within it is asked whole while the prompt is within the budget.
+         * Never less than [MIN_REPLY_TOKENS].
+         */
+        val replyTokens: Int
+            get() {
+                val exact = contextWindow - promptTokens - reserveTokens
+                val headroom = (contextWindow + 99L) / 100
+                val error = (promptTokens * 15L + 99) / 100
+                val careful = minOf(exact.toLong(), contextWindow - headroom - promptTokens - error).toInt()
+                return minOf(maxOutputTokens, maxOf(minOf(replyReserveTokens, exact), careful, MIN_REPLY_TOKENS))
+            }
 
         /**
          * The part of the prompt that compaction cannot shrink.
@@ -95,6 +124,7 @@ class ContextBudget(private val settings: ContextSettings) {
         maxOutputTokens: Int,
     ): Accounting {
         val memoryTokens = memory?.let { NativeCore.estimateTokens(it) } ?: 0
+        val output = maxOutputTokens.coerceAtMost(model.maxOutputTokens)
         return Accounting(
             systemTokens = (NativeCore.estimateTokens(systemPrompt) - memoryTokens).coerceAtLeast(0),
             toolSchemaTokens = toolSchemaTokens,
@@ -102,8 +132,10 @@ class ContextBudget(private val settings: ContextSettings) {
             memoryTokens = memoryTokens,
             liveMessageTokens = messages.sumOf { it.tokens },
             reserveTokens = settings.safetyReserveTokens,
-            maxOutputTokens = maxOutputTokens.coerceAtMost(model.maxOutputTokens),
+            maxOutputTokens = output,
             contextWindow = model.contextWindow,
+            replyReserveTokens = model.replyReserve.coerceAtMost(output),
+            compactAt = settings.hardThreshold,
         )
     }
 
@@ -386,5 +418,8 @@ class ContextBudget(private val settings: ContextSettings) {
          * threshold comes round again, high enough to keep recent work verbatim.
          */
         const val TARGET_FRACTION = 0.6f
+
+        /** The least reply a request asks for, however full the window: OpenCode's floor. */
+        const val MIN_REPLY_TOKENS = 1_024
     }
 }
